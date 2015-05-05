@@ -23,16 +23,16 @@ package com.manydesigns.elements.xml;
 import java.io.IOException;
 
 /*
-* @author Paolo Predonzani     - paolo.predonzani@manydesigns.com
-* @author Angelo Lupo          - angelo.lupo@manydesigns.com
-* @author Giampiero Granatella - giampiero.granatella@manydesigns.com
-* @author Alessio Stalla       - alessio.stalla@manydesigns.com
-*/
+ * @author Paolo Predonzani     - paolo.predonzani@manydesigns.com
+ * @author Angelo Lupo          - angelo.lupo@manydesigns.com
+ * @author Giampiero Granatella - giampiero.granatella@manydesigns.com
+ * @author Alessio Stalla       - alessio.stalla@manydesigns.com
+ */
 public class IOError extends Error {
-    public static final String copyright =
-            "Copyright (c) 2005-2015, ManyDesigns srl";
+	private static final long serialVersionUID = -5444774139601809697L;
+	public static final String copyright = "Copyright (c) 2005-2015, ManyDesigns srl";
 
-    public IOError(IOException cause) {
-        super(cause);
-    }
+	public IOError(IOException cause) {
+		super(cause);
+	}
 }

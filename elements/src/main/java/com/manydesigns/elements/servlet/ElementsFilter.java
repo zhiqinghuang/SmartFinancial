@@ -32,107 +32,90 @@ import javax.servlet.http.HttpSession;
 import java.io.IOException;
 
 /*
-* @author Paolo Predonzani     - paolo.predonzani@manydesigns.com
-* @author Angelo Lupo          - angelo.lupo@manydesigns.com
-* @author Giampiero Granatella - giampiero.granatella@manydesigns.com
-* @author Alessio Stalla       - alessio.stalla@manydesigns.com
-*/
+ * @author Paolo Predonzani     - paolo.predonzani@manydesigns.com
+ * @author Angelo Lupo          - angelo.lupo@manydesigns.com
+ * @author Giampiero Granatella - giampiero.granatella@manydesigns.com
+ * @author Alessio Stalla       - alessio.stalla@manydesigns.com
+ */
 public class ElementsFilter implements Filter {
-    public static final String copyright =
-            "Copyright (c) 2005-2015, ManyDesigns srl";
+	public static final String copyright = "Copyright (c) 2005-2015, ManyDesigns srl";
 
-    //--------------------------------------------------------------------------
-    // Constants
-    //--------------------------------------------------------------------------
+	// --------------------------------------------------------------------------
+	// Constants
+	// --------------------------------------------------------------------------
 
-    public static final String REQUEST_OGNL_ATTRIBUTE = "request";
-    public static final String SESSION_OGNL_ATTRIBUTE = "session";
-    public static final String SERVLET_CONTEXT_OGNL_ATTRIBUTE = "servletContext";
+	public static final String REQUEST_OGNL_ATTRIBUTE = "request";
+	public static final String SESSION_OGNL_ATTRIBUTE = "session";
+	public static final String SERVLET_CONTEXT_OGNL_ATTRIBUTE = "servletContext";
 
-    //--------------------------------------------------------------------------
-    // Fields
-    //--------------------------------------------------------------------------
+	// --------------------------------------------------------------------------
+	// Fields
+	// --------------------------------------------------------------------------
 
-    protected FilterConfig filterConfig;
-    protected ServletContext servletContext;
+	protected FilterConfig filterConfig;
+	protected ServletContext servletContext;
 
+	// --------------------------------------------------------------------------
+	// Logging
+	// --------------------------------------------------------------------------
 
-    //--------------------------------------------------------------------------
-    // Logging
-    //--------------------------------------------------------------------------
+	public final static Logger logger = LoggerFactory.getLogger(ElementsFilter.class);
 
-    public final static Logger logger =
-            LoggerFactory.getLogger(ElementsFilter.class);
+	// --------------------------------------------------------------------------
+	// Filter implementation
+	// --------------------------------------------------------------------------
 
-    //--------------------------------------------------------------------------
-    // Filter implementation
-    //--------------------------------------------------------------------------
+	public void init(FilterConfig filterConfig) throws ServletException {
+		this.filterConfig = filterConfig;
+		this.servletContext = filterConfig.getServletContext();
+		logger.info("ElementsFilter initialized");
+	}
 
-    public void init(FilterConfig filterConfig) throws ServletException {
-        this.filterConfig = filterConfig;
-        this.servletContext = filterConfig.getServletContext();
-        logger.info("ElementsFilter initialized");
-    }
+	public void doFilter(ServletRequest req, ServletResponse res, FilterChain filterChain) throws IOException, ServletException {
 
-    public void doFilter(ServletRequest req,
-                         ServletResponse res, FilterChain filterChain)
-            throws IOException, ServletException {
+		if (req instanceof HttpServletRequest && res instanceof HttpServletResponse) {
+			doHttpFilter((HttpServletRequest) req, (HttpServletResponse) res, filterChain);
+		} else {
+			filterChain.doFilter(req, res);
+		}
+	}
 
-        if (req instanceof HttpServletRequest
-                && res instanceof HttpServletResponse) {
-            doHttpFilter((HttpServletRequest) req,
-                    (HttpServletResponse)res,
-                    filterChain);
-        } else {
-            filterChain.doFilter(req, res);
-        }
-    }
+	public void destroy() {
+		logger.info("ElementsFilter destroyed");
+	}
 
-    public void destroy() {
-        logger.info("ElementsFilter destroyed");
-    }
+	// --------------------------------------------------------------------------
+	// methods
+	// --------------------------------------------------------------------------
 
-    //--------------------------------------------------------------------------
-    // methods
-    //--------------------------------------------------------------------------
+	protected void doHttpFilter(HttpServletRequest req, HttpServletResponse res, FilterChain filterChain) throws IOException, ServletException {
+		ServletContext context = filterConfig.getServletContext();
 
-    protected void doHttpFilter(HttpServletRequest req,
-                                HttpServletResponse res,
-                                FilterChain filterChain)
-            throws IOException, ServletException {
-        ServletContext context = filterConfig.getServletContext();
+		try {
+			logger.debug("Setting up default OGNL context");
+			ElementsThreadLocals.setupDefaultElementsContext();
+			OgnlContext ognlContext = ElementsThreadLocals.getOgnlContext();
 
-        try {
-            logger.debug("Setting up default OGNL context");
-            ElementsThreadLocals.setupDefaultElementsContext();
-            OgnlContext ognlContext = ElementsThreadLocals.getOgnlContext();
+			logger.debug("Creating request attribute mapper");
+			AttributeMap requestAttributeMap = AttributeMap.createAttributeMap(req);
+			ognlContext.put(REQUEST_OGNL_ATTRIBUTE, requestAttributeMap);
 
-            logger.debug("Creating request attribute mapper");
-            AttributeMap requestAttributeMap =
-                    AttributeMap.createAttributeMap(req);
-            ognlContext.put(REQUEST_OGNL_ATTRIBUTE, requestAttributeMap);
+			logger.debug("Creating session attribute mapper");
+			HttpSession session = req.getSession(false);
+			AttributeMap sessionAttributeMap = AttributeMap.createAttributeMap(session);
+			ognlContext.put(SESSION_OGNL_ATTRIBUTE, sessionAttributeMap);
 
-            logger.debug("Creating session attribute mapper");
-            HttpSession session = req.getSession(false);
-            AttributeMap sessionAttributeMap =
-                    AttributeMap.createAttributeMap(session);
-            ognlContext.put(SESSION_OGNL_ATTRIBUTE, sessionAttributeMap);
+			logger.debug("Creating servlet context attribute mapper");
+			AttributeMap servletContextAttributeMap = AttributeMap.createAttributeMap(servletContext);
+			ognlContext.put(SERVLET_CONTEXT_OGNL_ATTRIBUTE, servletContextAttributeMap);
 
-            logger.debug("Creating servlet context attribute mapper");
-            AttributeMap servletContextAttributeMap =
-                    AttributeMap.createAttributeMap(servletContext);
-            ognlContext.put(SERVLET_CONTEXT_OGNL_ATTRIBUTE,
-                    servletContextAttributeMap);
+			ElementsThreadLocals.setHttpServletRequest(req);
+			ElementsThreadLocals.setHttpServletResponse(res);
+			ElementsThreadLocals.setServletContext(context);
 
-
-            ElementsThreadLocals.setHttpServletRequest(req);
-            ElementsThreadLocals.setHttpServletResponse(res);
-            ElementsThreadLocals.setServletContext(context);
-
-            filterChain.doFilter(req, res);
-        } finally {
-            ElementsThreadLocals.removeElementsContext();
-        }
-    }
-
+			filterChain.doFilter(req, res);
+		} finally {
+			ElementsThreadLocals.removeElementsContext();
+		}
+	}
 }

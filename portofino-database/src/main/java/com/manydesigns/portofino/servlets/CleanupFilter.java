@@ -29,34 +29,30 @@ import javax.servlet.*;
 import java.io.IOException;
 
 /**
- * @author Paolo Predonzani     - paolo.predonzani@manydesigns.com
- * @author Angelo Lupo          - angelo.lupo@manydesigns.com
+ * @author Paolo Predonzani - paolo.predonzani@manydesigns.com
+ * @author Angelo Lupo - angelo.lupo@manydesigns.com
  * @author Giampiero Granatella - giampiero.granatella@manydesigns.com
- * @author Alessio Stalla       - alessio.stalla@manydesigns.com
+ * @author Alessio Stalla - alessio.stalla@manydesigns.com
  */
 public class CleanupFilter implements Filter {
-    public static final String copyright =
-            "Copyright (c) 2005-2015, ManyDesigns srl";
+	public static final String copyright = "Copyright (c) 2005-2015, ManyDesigns srl";
 
-    public void init(FilterConfig filterConfig) throws ServletException {
+	public void init(FilterConfig filterConfig) throws ServletException {
+	}
 
-    }
+	public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
+		try {
+			chain.doFilter(request, response);
+		} finally {
+			ServletContext servletContext = ElementsThreadLocals.getServletContext();
+			Persistence persistence = (Persistence) servletContext.getAttribute(DatabaseModule.PERSISTENCE);
+			MDC.clear();
+			if (persistence != null && persistence.getModel() != null) {
+				persistence.closeSessions();
+			}
+		}
+	}
 
-    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
-        try {
-            chain.doFilter(request, response);
-        } finally {
-            ServletContext servletContext = ElementsThreadLocals.getServletContext();
-            Persistence persistence =
-                    (Persistence) servletContext.getAttribute(DatabaseModule.PERSISTENCE);
-            MDC.clear();
-            if (persistence !=null && persistence.getModel() != null) {
-                persistence.closeSessions();
-            }
-        }
-    }
-
-    public void destroy() {
-
-    }
+	public void destroy() {
+	}
 }

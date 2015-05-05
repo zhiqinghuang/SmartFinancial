@@ -34,65 +34,62 @@ import javax.servlet.http.HttpServletRequest;
 import java.io.File;
 
 /**
- * @author Paolo Predonzani     - paolo.predonzani@manydesigns.com
- * @author Angelo Lupo          - angelo.lupo@manydesigns.com
+ * @author Paolo Predonzani - paolo.predonzani@manydesigns.com
+ * @author Angelo Lupo - angelo.lupo@manydesigns.com
  * @author Giampiero Granatella - giampiero.granatella@manydesigns.com
- * @author Alessio Stalla       - alessio.stalla@manydesigns.com
+ * @author Alessio Stalla - alessio.stalla@manydesigns.com
  */
 public class DispatcherUtil {
-    public static final String copyright =
-            "Copyright (c) 2005-2015, ManyDesigns srl";
+	public static final String copyright = "Copyright (c) 2005-2015, ManyDesigns srl";
 
-    public static Dispatcher get(HttpServletRequest request) {
-        if(request == null) {
-            return null;
-        }
-        return (Dispatcher) request.getAttribute(RequestAttributes.DISPATCHER);
-    }
+	public static Dispatcher get(HttpServletRequest request) {
+		if (request == null) {
+			return null;
+		}
+		return (Dispatcher) request.getAttribute(RequestAttributes.DISPATCHER);
+	}
 
-    public static Dispatcher install(HttpServletRequest request) {
-        ServletContext servletContext = ElementsThreadLocals.getServletContext();
-        Configuration configuration =
-                (Configuration) servletContext.getAttribute(BaseModule.PORTOFINO_CONFIGURATION);
-        File pagesDir = (File) servletContext.getAttribute(PageactionsModule.PAGES_DIRECTORY);
+	public static Dispatcher install(HttpServletRequest request) {
+		ServletContext servletContext = ElementsThreadLocals.getServletContext();
+		Configuration configuration = (Configuration) servletContext.getAttribute(BaseModule.PORTOFINO_CONFIGURATION);
+		File pagesDir = (File) servletContext.getAttribute(PageactionsModule.PAGES_DIRECTORY);
 
-        Dispatcher dispatcher = new Dispatcher(configuration, pagesDir);
-        request.setAttribute(RequestAttributes.DISPATCHER, dispatcher);
-        return dispatcher;
-    }
+		Dispatcher dispatcher = new Dispatcher(configuration, pagesDir);
+		request.setAttribute(RequestAttributes.DISPATCHER, dispatcher);
+		return dispatcher;
+	}
 
-    public static Dispatch getDispatch(HttpServletRequest request) {
-        Dispatcher dispatcher = get(request);
-        return getDispatch(dispatcher, request);
-    }
+	public static Dispatch getDispatch(HttpServletRequest request) {
+		Dispatcher dispatcher = get(request);
+		return getDispatch(dispatcher, request);
+	}
 
-    public static Dispatch getDispatch(HttpServletRequest request, Object actionBean) {
-        Dispatcher dispatcher = get(request);
-        if(actionBean instanceof AbstractActionBean) {
-            String actionPath = ((AbstractActionBean) actionBean).getContext().getActionPath();
-            return dispatcher.getDispatch(actionPath);
-        } else {
-            return getDispatch(request);
-        }
-    }
+	public static Dispatch getDispatch(HttpServletRequest request, Object actionBean) {
+		Dispatcher dispatcher = get(request);
+		if (actionBean instanceof AbstractActionBean) {
+			String actionPath = ((AbstractActionBean) actionBean).getContext().getActionPath();
+			return dispatcher.getDispatch(actionPath);
+		} else {
+			return getDispatch(request);
+		}
+	}
 
-    public static Dispatch getDispatch(ActionBeanContext context) {
-        HttpServletRequest request = context.getRequest();
-        Dispatcher dispatcher = get(request);
-        if(context instanceof ElementsActionBeanContext) {
-            String actionPath = ((ElementsActionBeanContext) context).getActionPath();
-            return dispatcher.getDispatch(actionPath);
-        } else {
-            return getDispatch(request);
-        }
-    }
+	public static Dispatch getDispatch(ActionBeanContext context) {
+		HttpServletRequest request = context.getRequest();
+		Dispatcher dispatcher = get(request);
+		if (context instanceof ElementsActionBeanContext) {
+			String actionPath = ((ElementsActionBeanContext) context).getActionPath();
+			return dispatcher.getDispatch(actionPath);
+		} else {
+			return getDispatch(request);
+		}
+	}
 
-    public static Dispatch getDispatch(Dispatcher dispatcher, HttpServletRequest request) {
-        //TODO ElementsActionBeanContext
-        ElementsActionBeanContext context = new ElementsActionBeanContext();
-        context.setRequest(request);
-        String originalPath = context.getActionPath();
-        return dispatcher.getDispatch(originalPath);
-    }
-
+	public static Dispatch getDispatch(Dispatcher dispatcher, HttpServletRequest request) {
+		// TODO ElementsActionBeanContext
+		ElementsActionBeanContext context = new ElementsActionBeanContext();
+		context.setRequest(request);
+		String originalPath = context.getActionPath();
+		return dispatcher.getDispatch(originalPath);
+	}
 }

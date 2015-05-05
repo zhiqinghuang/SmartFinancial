@@ -33,30 +33,28 @@ import java.util.MissingResourceException;
 import java.util.ResourceBundle;
 
 /**
- * @author Paolo Predonzani     - paolo.predonzani@manydesigns.com
- * @author Angelo Lupo          - angelo.lupo@manydesigns.com
+ * @author Paolo Predonzani - paolo.predonzani@manydesigns.com
+ * @author Angelo Lupo - angelo.lupo@manydesigns.com
  * @author Giampiero Granatella - giampiero.granatella@manydesigns.com
- * @author Alessio Stalla       - alessio.stalla@manydesigns.com
+ * @author Alessio Stalla - alessio.stalla@manydesigns.com
  */
 public class PortofinoLocalizationBundleFactory implements LocalizationBundleFactory {
-    public static final String copyright =
-            "Copyright (c) 2005-2015, ManyDesigns srl";
+	public static final String copyright = "Copyright (c) 2005-2015, ManyDesigns srl";
 
-    public static final Logger logger = LoggerFactory.getLogger(PortofinoLocalizationBundleFactory.class);
+	public static final Logger logger = LoggerFactory.getLogger(PortofinoLocalizationBundleFactory.class);
 
-    protected ResourceBundleManager resourceBundleManager;
+	protected ResourceBundleManager resourceBundleManager;
 
-    public ResourceBundle getErrorMessageBundle(Locale locale) throws MissingResourceException {
-        return resourceBundleManager.getBundle(locale);
-    }
+	public ResourceBundle getErrorMessageBundle(Locale locale) throws MissingResourceException {
+		return resourceBundleManager.getBundle(locale);
+	}
 
-    public ResourceBundle getFormFieldBundle(Locale locale) throws MissingResourceException {
-        return resourceBundleManager.getBundle(locale);
-    }
+	public ResourceBundle getFormFieldBundle(Locale locale) throws MissingResourceException {
+		return resourceBundleManager.getBundle(locale);
+	}
 
-    public void init(Configuration configuration) throws Exception {
-        ServletContext servletContext = configuration.getServletContext();
-        resourceBundleManager =
-                (ResourceBundleManager) servletContext.getAttribute(BaseModule.RESOURCE_BUNDLE_MANAGER);
-    }
+	public void init(Configuration configuration) throws Exception {
+		ServletContext servletContext = configuration.getServletContext();
+		resourceBundleManager = (ResourceBundleManager) servletContext.getAttribute(BaseModule.RESOURCE_BUNDLE_MANAGER);
+	}
 }

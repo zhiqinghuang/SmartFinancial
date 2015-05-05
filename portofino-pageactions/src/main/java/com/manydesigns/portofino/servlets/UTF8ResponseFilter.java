@@ -24,21 +24,22 @@ import javax.servlet.*;
 import java.io.IOException;
 
 /**
- * @author Paolo Predonzani     - paolo.predonzani@manydesigns.com
- * @author Angelo Lupo          - angelo.lupo@manydesigns.com
+ * @author Paolo Predonzani - paolo.predonzani@manydesigns.com
+ * @author Angelo Lupo - angelo.lupo@manydesigns.com
  * @author Giampiero Granatella - giampiero.granatella@manydesigns.com
- * @author Alessio Stalla       - alessio.stalla@manydesigns.com
+ * @author Alessio Stalla - alessio.stalla@manydesigns.com
  */
 public class UTF8ResponseFilter implements Filter {
-    public static final String copyright =
-            "Copyright (c) 2005-2015, ManyDesigns srl";
+	public static final String copyright = "Copyright (c) 2005-2015, ManyDesigns srl";
 
-    public void init(FilterConfig filterConfig) throws ServletException {}
+	public void init(FilterConfig filterConfig) throws ServletException {
+	}
 
-    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
-        response.setCharacterEncoding("UTF-8");
-        chain.doFilter(request, response);
-    }
+	public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
+		response.setCharacterEncoding("UTF-8");
+		chain.doFilter(request, response);
+	}
 
-    public void destroy() {}
+	public void destroy() {
+	}
 }

@@ -87,7 +87,7 @@
         <google.appengine.sdk.version>1.7.7.1</google.appengine.sdk.version> <!-- Last version supporting Java 6 -->
         <groovy.version>2.4.3</groovy.version>
         <guava.version>16.0.1</guava.version> <!-- Following GAE dependency -->
-        <hibernate.version>4.3.8.Final</hibernate.version>
+        <hibernate.version>4.3.9.Final</hibernate.version>
         <itext.version>2.1.7</itext.version>
         <jasperreports.version>3.5.0</jasperreports.version>
         <javaee-web-api.version>6.0</javaee-web-api.version>
@@ -100,9 +100,9 @@
         <jsoup.version>1.7.1</jsoup.version>
         <jstl.version>1.1.2</jstl.version>
         <jxl.version>2.6.12</jxl.version>
-        <liquibase.version>3.3.2</liquibase.version>
+        <liquibase.version>3.3.3</liquibase.version>
         <logback.version>0.9.26</logback.version>
-        <ognl.version>3.0.8</ognl.version>
+        <ognl.version>3.0.11</ognl.version>
         <shiro.version>1.2.3</shiro.version>
         <slf4j.version>1.6.1</slf4j.version><!--Hibernate uses 1.5.8-->
         <stax.version>1.2.0</stax.version>
