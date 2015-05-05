@@ -45,23 +45,16 @@
         <stax.version>1.2.0</stax.version>
         <stripes.version>1.5.8</stripes.version>
         <quartz.version>2.2.1</quartz.version>
+        <postgresql.version>9.4-1201-jdbc41</postgresql.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
     <dependencies>
         <!--
         ///////////////////////////////////////////////////////////////////////
-        // This file by default includes all available modules. You can      //
-        // disable those that you won't use in your application. Core        //
-        // modules that you shouldn't touch unless you know very well what   //
-        // you're doing are at the bottom of this file.                      //
-        ///////////////////////////////////////////////////////////////////////
-        -->
-
-        <!--
-        ///////////////////////////////////////////////////////////////////////
         // Database implementations. Choose the ones that apply.             //
         ///////////////////////////////////////////////////////////////////////
         -->
+        <!--
         <dependency>
             <groupId>com.manydesigns</groupId>
             <artifactId>portofino-derby</artifactId>
@@ -104,6 +97,7 @@
             <version>${portofino.version}</version>
             <scope>compile</scope>
         </dependency>
+        -->
         <dependency>
             <groupId>com.manydesigns</groupId>
             <artifactId>portofino-postgresql</artifactId>
@@ -282,6 +276,11 @@
             <artifactId>logback-core</artifactId>
             <version>${logback.version}</version>
             <scope>compile</scope>
+        </dependency>
+        <dependency>
+        	<groupId>org.postgresql</groupId>
+        	<artifactId>postgresql</artifactId>
+        	<version>${postgresql.version}</version>
         </dependency>
     </dependencies>
     <build>
