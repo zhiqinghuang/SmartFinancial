@@ -1,23 +1,3 @@
-/*
- * Copyright (C) 2005-2015 ManyDesigns srl.  All rights reserved.
- * http://www.manydesigns.com/
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 3 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
- */
-
 package com.manydesigns.elements.forms;
 
 import com.manydesigns.elements.annotations.Searchable;
@@ -36,162 +16,126 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/*
-* @author Paolo Predonzani     - paolo.predonzani@manydesigns.com
-* @author Angelo Lupo          - angelo.lupo@manydesigns.com
-* @author Giampiero Granatella - giampiero.granatella@manydesigns.com
-* @author Alessio Stalla       - alessio.stalla@manydesigns.com
-*/
 public class SearchFormBuilder extends AbstractFormBuilder {
-    public static final String copyright =
-            "Copyright (c) 2005-2015, ManyDesigns srl";
+	protected List<PropertyAccessor> propertyAccessors;
 
-    //**************************************************************************
-    // Fields
-    //**************************************************************************
+	public SearchFormBuilder(Class aClass) {
+		this(JavaClassAccessor.getClassAccessor(aClass));
+	}
 
-    protected List<PropertyAccessor> propertyAccessors;
+	public SearchFormBuilder(ClassAccessor classAccessor) {
+		super(classAccessor);
+	}
 
-    //**************************************************************************
-    // Constructors
-    //**************************************************************************
+	public SearchFormBuilder configFields(String... fieldNames) {
+		propertyAccessors = new ArrayList<PropertyAccessor>();
+		for (String current : fieldNames) {
+			try {
+				PropertyAccessor accessor = classAccessor.getProperty(current);
+				propertyAccessors.add(accessor);
+			} catch (NoSuchFieldException e) {
+				logger.warn("Field not found: " + current, e);
+			}
+		}
 
-    public SearchFormBuilder(Class aClass) {
-        this(JavaClassAccessor.getClassAccessor(aClass));
-    }
+		return this;
+	}
 
-    public SearchFormBuilder(ClassAccessor classAccessor) {
-        super(classAccessor);
-    }
+	public SearchFormBuilder configPrefix(String prefix) {
+		logger.debug("prefix = {}", prefix);
 
-    //**************************************************************************
-    // Builder configuration
-    //**************************************************************************
+		this.prefix = prefix;
+		return this;
+	}
 
-    public SearchFormBuilder configFields(String... fieldNames) {
-        propertyAccessors = new ArrayList<PropertyAccessor>();
-        for (String current : fieldNames) {
-            try {
-                PropertyAccessor accessor =
-                        classAccessor.getProperty(current);
-                propertyAccessors.add(accessor);
-            } catch (NoSuchFieldException e) {
-                logger.warn("Field not found: " + current, e);
-            }
-        }
+	public SearchFormBuilder configSelectionProvider(SelectionProvider selectionProvider, String... fieldNames) {
+		selectionProviders.put(fieldNames, selectionProvider);
+		return this;
+	}
 
-        return this;
-    }
+	public SearchFormBuilder configReflectiveFields() {
+		logger.debug("configReflectiveFields");
 
-    public SearchFormBuilder configPrefix(String prefix) {
-        logger.debug("prefix = {}", prefix);
+		propertyAccessors = new ArrayList<PropertyAccessor>();
 
-        this.prefix = prefix;
-        return this;
-    }
+		for (PropertyAccessor current : classAccessor.getProperties()) {
+			if (!isPropertyEnabled(current)) {
+				continue;
+			}
 
-    public SearchFormBuilder configSelectionProvider(SelectionProvider selectionProvider,
-                                            String... fieldNames) {
-        selectionProviders.put(fieldNames, selectionProvider);
-        return this;
-    }
+			// check if field is searchable
+			Searchable searchableAnnotation = current.getAnnotation(Searchable.class);
+			if (searchableAnnotation != null && !searchableAnnotation.value()) {
+				logger.debug("Skipping non-searchable field: {}", current.getName());
+				continue;
+			}
 
+			propertyAccessors.add(current);
+		}
 
-    public SearchFormBuilder configReflectiveFields() {
-        logger.debug("configReflectiveFields");
+		return this;
+	}
 
-        propertyAccessors = new ArrayList<PropertyAccessor>();
+	public SearchForm build() {
+		logger.debug("build");
 
-        for (PropertyAccessor current : classAccessor.getProperties()) {
-            if(!isPropertyEnabled(current)) {
-                continue;
-            }
+		SearchForm searchForm = new SearchForm();
+		FieldsManager manager = FieldsManager.getManager();
 
-            // check if field is searchable
-            Searchable searchableAnnotation = current.getAnnotation(Searchable.class);
-            if (searchableAnnotation != null && !searchableAnnotation.value()) {
-                logger.debug("Skipping non-searchable field: {}",
-                        current.getName());
-                continue;
-            }
+		if (propertyAccessors == null) {
+			configReflectiveFields();
+		}
 
-            propertyAccessors.add(current);
-        }
+		Map<String, SearchField> fieldMap = new HashMap<String, SearchField>();
+		for (PropertyAccessor propertyAccessor : propertyAccessors) {
+			SearchField field = null;
+			String fieldName = propertyAccessor.getName();
 
-        return this;
-    }
+			for (Map.Entry<String[], SelectionProvider> current : selectionProviders.entrySet()) {
 
-    //**************************************************************************
-    // Building
-    //**************************************************************************
+				String[] fieldNames = current.getKey();
+				int index = ArrayUtils.indexOf(fieldNames, fieldName);
+				if (index >= 0) {
+					field = new SelectSearchField(propertyAccessor, current.getValue(), prefix);
+					break;
+				}
+			}
 
-    public SearchForm build() {
-        logger.debug("build");
+			if (field == null) {
+				field = manager.tryToInstantiateSearchField(classAccessor, propertyAccessor, prefix);
+			}
 
-        SearchForm searchForm = new SearchForm();
-        FieldsManager manager = FieldsManager.getManager();
+			if (field == null) {
+				logger.warn("Cannot instanciate field for property {}", propertyAccessor);
+				continue;
+			}
+			fieldMap.put(fieldName, field);
+			searchForm.add(field);
+		}
 
-        if (propertyAccessors == null) {
-            configReflectiveFields();
-        }
+		// handle cascaded select fields
+		for (Map.Entry<String[], SelectionProvider> current : selectionProviders.entrySet()) {
+			String[] fieldNames = current.getKey();
+			SelectionProvider selectionProvider = current.getValue();
+			SelectionModel selectionModel = selectionProvider.createSelectionModel();
 
+			SelectSearchField previousField = null;
+			for (int i = 0; i < fieldNames.length; i++) {
+				SelectSearchField selectSearchField = (SelectSearchField) fieldMap.get(fieldNames[i]);
+				if (selectSearchField == null) {
+					previousField = null;
+					continue;
+				}
+				selectSearchField.setSelectionModel(selectionModel);
+				selectSearchField.setSelectionModelIndex(i);
+				if (previousField != null) {
+					selectSearchField.setPreviousSelectField(previousField);
+					previousField.setNextSelectField(selectSearchField);
+				}
+				previousField = selectSearchField;
+			}
+		}
 
-        Map<String, SearchField> fieldMap = new HashMap<String,SearchField>();
-        for (PropertyAccessor propertyAccessor : propertyAccessors) {
-            SearchField field = null;
-            String fieldName = propertyAccessor.getName();
-            
-            for (Map.Entry<String[], SelectionProvider> current
-                : selectionProviders.entrySet()) {
-
-                String[] fieldNames = current.getKey();
-                int index = ArrayUtils.indexOf(fieldNames, fieldName);
-                if (index >= 0) {
-                    field = new SelectSearchField(propertyAccessor, current.getValue(), prefix);
-                    break;
-                }
-            }
-
-            if (field == null) {
-                field = manager.tryToInstantiateSearchField(
-                    classAccessor, propertyAccessor, prefix);
-            }
-
-            if (field == null) {
-                logger.warn("Cannot instanciate field for property {}",
-                        propertyAccessor);
-                continue;
-            }
-            fieldMap.put(fieldName, field);
-            searchForm.add(field);
-        }
-
-         // handle cascaded select fields
-        for (Map.Entry<String[], SelectionProvider> current :
-                selectionProviders.entrySet()) {
-            String[] fieldNames = current.getKey();
-            SelectionProvider selectionProvider = current.getValue();
-            SelectionModel selectionModel =
-                    selectionProvider.createSelectionModel();
-
-            SelectSearchField previousField = null;
-            for (int i = 0; i < fieldNames.length; i++) {
-                SelectSearchField selectSearchField =
-                        (SelectSearchField)fieldMap.get(fieldNames[i]);
-                if(selectSearchField == null) {
-                    previousField = null;
-                    continue;
-                }
-                selectSearchField.setSelectionModel(selectionModel);
-                selectSearchField.setSelectionModelIndex(i);
-                if (previousField != null) {
-                    selectSearchField.setPreviousSelectField(previousField);
-                    previousField.setNextSelectField(selectSearchField);
-                }
-                previousField = selectSearchField;
-            }
-        }
-
-        return searchForm;
-    }
+		return searchForm;
+	}
 }
