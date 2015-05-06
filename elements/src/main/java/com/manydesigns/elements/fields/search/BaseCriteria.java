@@ -8,8 +8,6 @@ import java.util.ArrayList;
 public class BaseCriteria extends ArrayList<Criterion> implements Criteria {
 	private static final long serialVersionUID = -287603936412370458L;
 
-	public static final String copyright = "Copyright (c) 2005-2015, ManyDesigns srl";
-
 	protected OrderBy orderBy;
 
 	public BaseCriteria() {

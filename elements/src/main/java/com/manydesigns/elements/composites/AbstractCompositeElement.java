@@ -10,8 +10,8 @@ import java.util.Collection;
 import java.util.List;
 
 public abstract class AbstractCompositeElement<T extends Element> extends ArrayList<T> implements Element {
-	public static final String copyright = "Copyright (c) 2005-2015, ManyDesigns srl";
 
+	private static final long serialVersionUID = -7649717045080410052L;
 	protected String id;
 
 	public AbstractCompositeElement(int initialCapacity) {
@@ -89,5 +89,4 @@ public abstract class AbstractCompositeElement<T extends Element> extends ArrayL
 		}
 		return fields;
 	}
-
 }

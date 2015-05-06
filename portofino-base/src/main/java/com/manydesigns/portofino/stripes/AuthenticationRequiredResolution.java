@@ -1,23 +1,3 @@
-/*
- * Copyright (C) 2005-2015 ManyDesigns srl.  All rights reserved.
- * http://www.manydesigns.com/
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 3 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
- */
-
 package com.manydesigns.portofino.stripes;
 
 import com.manydesigns.elements.ElementsThreadLocals;
@@ -38,60 +18,47 @@ import javax.servlet.http.HttpServletResponse;
 import java.util.Locale;
 import java.util.Map;
 
-/**
- * @author Paolo Predonzani     - paolo.predonzani@manydesigns.com
- * @author Angelo Lupo          - angelo.lupo@manydesigns.com
- * @author Giampiero Granatella - giampiero.granatella@manydesigns.com
- * @author Alessio Stalla       - alessio.stalla@manydesigns.com
- */
 public class AuthenticationRequiredResolution implements Resolution {
-    public static final String copyright =
-            "Copyright (c) 2005-2015, ManyDesigns srl";
+	public final static Logger logger = LoggerFactory.getLogger(AuthenticationRequiredResolution.class);
 
-    public final static Logger logger =
-            LoggerFactory.getLogger(AuthenticationRequiredResolution.class);
+	public static final int STATUS = 403;
 
-    public static final int STATUS = 403;
+	private String errorMessage;
 
-    private String errorMessage;
+	public AuthenticationRequiredResolution() {
+	}
 
-    public AuthenticationRequiredResolution() {}
+	public AuthenticationRequiredResolution(String errorMessage) {
+		this.errorMessage = errorMessage;
+	}
 
-    public AuthenticationRequiredResolution(String errorMessage) {
-        this.errorMessage = errorMessage;
-    }
-
-    public void execute(HttpServletRequest request, HttpServletResponse response) throws Exception {
-        if(request.getParameter("__portofino_quiet_auth_failure") != null) {
-            return;
-        }
-        ElementsActionBeanContext context = new ElementsActionBeanContext();
-        context.setRequest(request);
-        String originalPath = context.getActionPath();
-        UrlBuilder urlBuilder =
-                new UrlBuilder(Locale.getDefault(), originalPath, false);
-        Map<?, ?> parameters = request.getParameterMap();
-        urlBuilder.addParameters(parameters);
-        String returnUrl = urlBuilder.toString();
-        boolean ajax = "true".equals(request.getParameter("ajax"));
-        ServletContext servletContext = ElementsThreadLocals.getServletContext();
-        Configuration configuration =
-                (Configuration) servletContext.getAttribute(BaseModule.PORTOFINO_CONFIGURATION);
-        if (!ajax) {
-            logger.info("Anonymous user not allowed to see {}. Redirecting to login.", originalPath);
-            String loginPage = configuration.getString(PortofinoProperties.LOGIN_PAGE);
-            RedirectResolution redirectResolution =
-                    new RedirectResolution(loginPage, true);
-            redirectResolution.addParameter("returnUrl", returnUrl);
-            redirectResolution.execute(request, response);
-        } else {
-            logger.debug("AJAX call while user disconnected");
-            //TODO where to redirect?
-            String loginPage = configuration.getString(PortofinoProperties.LOGIN_PAGE);
-            UrlBuilder loginUrlBuilder =
-                    new UrlBuilder(Locale.getDefault(), loginPage, false);
-            response.setStatus(STATUS);
-            new StreamingResolution("text/plain", loginUrlBuilder.toString()).execute(request, response);
-        }
-    }
+	public void execute(HttpServletRequest request, HttpServletResponse response) throws Exception {
+		if (request.getParameter("__portofino_quiet_auth_failure") != null) {
+			return;
+		}
+		ElementsActionBeanContext context = new ElementsActionBeanContext();
+		context.setRequest(request);
+		String originalPath = context.getActionPath();
+		UrlBuilder urlBuilder = new UrlBuilder(Locale.getDefault(), originalPath, false);
+		Map<?, ?> parameters = request.getParameterMap();
+		urlBuilder.addParameters(parameters);
+		String returnUrl = urlBuilder.toString();
+		boolean ajax = "true".equals(request.getParameter("ajax"));
+		ServletContext servletContext = ElementsThreadLocals.getServletContext();
+		Configuration configuration = (Configuration) servletContext.getAttribute(BaseModule.PORTOFINO_CONFIGURATION);
+		if (!ajax) {
+			logger.info("Anonymous user not allowed to see {}. Redirecting to login.", originalPath);
+			String loginPage = configuration.getString(PortofinoProperties.LOGIN_PAGE);
+			RedirectResolution redirectResolution = new RedirectResolution(loginPage, true);
+			redirectResolution.addParameter("returnUrl", returnUrl);
+			redirectResolution.execute(request, response);
+		} else {
+			logger.debug("AJAX call while user disconnected");
+			// TODO where to redirect?
+			String loginPage = configuration.getString(PortofinoProperties.LOGIN_PAGE);
+			UrlBuilder loginUrlBuilder = new UrlBuilder(Locale.getDefault(), loginPage, false);
+			response.setStatus(STATUS);
+			new StreamingResolution("text/plain", loginUrlBuilder.toString()).execute(request, response);
+		}
+	}
 }

@@ -1,23 +1,3 @@
-/*
- * Copyright (C) 2005-2015 ManyDesigns srl.  All rights reserved.
- * http://www.manydesigns.com/
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 3 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
- */
-
 package com.manydesigns.portofino.buttons.annotations;
 
 import java.lang.annotation.ElementType;
@@ -25,75 +5,26 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/**
- * Declares that the method on which this annotation is attached is to be exposed as a button on a web page.
- *
- * @author Paolo Predonzani     - paolo.predonzani@manydesigns.com
- * @author Angelo Lupo          - angelo.lupo@manydesigns.com
- * @author Giampiero Granatella - giampiero.granatella@manydesigns.com
- * @author Alessio Stalla       - alessio.stalla@manydesigns.com
- */
 @Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.METHOD})
+@Target({ ElementType.METHOD })
 public @interface Button {
-    public static final String copyright =
-            "Copyright (c) 2005-2015, ManyDesigns srl";
 
-    public static final String
-        TYPE_DEFAULT = " btn-default ",
-        TYPE_PRIMARY = " btn-primary ",
-        TYPE_INFO = " btn-info ",
-        TYPE_SUCCESS = " btn-success ",
-        TYPE_WARNING = " btn-warning ",
-        TYPE_DANGER = " btn-danger ",
-        TYPE_INVERSE = " btn-inverse ",
-        TYPE_LINK = " btn-link ",
-        TYPE_NO_UI_BLOCK = " no-ui-block ";
+	public static final String TYPE_DEFAULT = " btn-default ", TYPE_PRIMARY = " btn-primary ", TYPE_INFO = " btn-info ", TYPE_SUCCESS = " btn-success ", TYPE_WARNING = " btn-warning ", TYPE_DANGER = " btn-danger ", TYPE_INVERSE = " btn-inverse ", TYPE_LINK = " btn-link ", TYPE_NO_UI_BLOCK = " no-ui-block ";
 
-    public static final String
-        ICON_WHITE = " white ",
-        ICON_EDIT = " glyphicon-edit ",
-        ICON_PLUS = " glyphicon-plus ",
-        ICON_MINUS = " glyphicon-minus ",
-        ICON_TRASH = " glyphicon-trash ",
-        ICON_WRENCH = " glyphicon-wrench ",
-        ICON_PICTURE = " glyphicon-picture ";
-    
-    /**
-     * The list where this button is to be placed. Web pages will include lists of buttons by name.
-     */
-    String list();
+	public static final String ICON_WHITE = " white ", ICON_EDIT = " glyphicon-edit ", ICON_PLUS = " glyphicon-plus ", ICON_MINUS = " glyphicon-minus ", ICON_TRASH = " glyphicon-trash ", ICON_WRENCH = " glyphicon-wrench ", ICON_PICTURE = " glyphicon-picture ";
 
-    /**
-     * The order of the button inside the list. Buttons with lower order come before buttons with higher order.
-     */
-    double order() default 1.0;
+	String list();
 
-    /**
-     * The resource bundle key for the button's label.
-     */
-    String key() default "";
+	double order() default 1.0;
 
-    /**
-     * The resource bundle key for the button's title (shown as a tooltip on most browsers).
-     */
-    String titleKey() default "";
+	String key() default "";
 
-    /**
-     * The name of the button's icon. You can add " white" after the name to produce a white icon instead of
-     * a black one.
-     */
-    String icon() default "";
+	String titleKey() default "";
 
-    /**
-     * Allows to specify the type of button to render: for example "primary", "link" or "success".
-     */
-    String type() default TYPE_DEFAULT;
+	String icon() default "";
 
-    /**
-     * The group this button belongs to. Buttons in the same group are rendered close together to separate them
-     * from other groups.
-     */
-    String group() default "";
+	String type() default TYPE_DEFAULT;
+
+	String group() default "";
 
 }
