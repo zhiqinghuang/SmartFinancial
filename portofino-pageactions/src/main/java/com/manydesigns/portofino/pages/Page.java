@@ -1,23 +1,3 @@
-/*
- * Copyright (C) 2005-2015 ManyDesigns srl.  All rights reserved.
- * http://www.manydesigns.com/
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 3 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
- */
-
 package com.manydesigns.portofino.pages;
 
 import com.manydesigns.elements.annotations.FieldSize;
@@ -27,150 +7,117 @@ import org.slf4j.LoggerFactory;
 
 import javax.xml.bind.annotation.*;
 
-/*
-* @author Paolo Predonzani     - paolo.predonzani@manydesigns.com
-* @author Angelo Lupo          - angelo.lupo@manydesigns.com
-* @author Giampiero Granatella - giampiero.granatella@manydesigns.com
-* @author Alessio Stalla       - alessio.stalla@manydesigns.com
-*/
 @XmlRootElement
 @XmlAccessorType(value = XmlAccessType.NONE)
 public class Page {
-    public static final String copyright =
-            "Copyright (c) 2005-2015, ManyDesigns srl";
+	protected String id;
+	protected String title;
+	protected String description;
+	protected Layout layout;
+	protected Layout detailLayout;
+	protected Permissions permissions;
+	protected String navigationRoot;
 
-    //**************************************************************************
-    // Fields
-    //**************************************************************************
+	protected NavigationRoot actualNavigationRoot;
 
-    protected String id;
-    protected String title;
-    protected String description;
-    protected Layout layout;
-    protected Layout detailLayout;
-    protected Permissions permissions;
-    protected String navigationRoot;
+	public static final Logger logger = LoggerFactory.getLogger(Page.class);
 
-    //**************************************************************************
-    // Actual fields
-    //**************************************************************************
+	public Page() {
+		layout = new Layout();
+		detailLayout = new Layout();
+		permissions = new Permissions();
+	}
 
-    protected NavigationRoot actualNavigationRoot;
+	public void init() {
+		assert title != null;
+		assert description != null;
 
-    //**************************************************************************
-    // Logging
-    //**************************************************************************
+		if (navigationRoot == null) {
+			actualNavigationRoot = NavigationRoot.INHERIT;
+			navigationRoot = actualNavigationRoot.name();
+		} else {
+			actualNavigationRoot = NavigationRoot.valueOf(navigationRoot);
+		}
 
-    public static final Logger logger = LoggerFactory.getLogger(Page.class);
+		if (layout != null) {
+			layout.init();
+		}
+		if (detailLayout != null) {
+			detailLayout.init();
+		}
+		if (permissions != null) {
+			permissions.init();
+		}
+	}
 
-    //**************************************************************************
-    // Constructors
-    //**************************************************************************
+	@XmlAttribute(required = true)
+	@Required
+	public String getId() {
+		return id;
+	}
 
-    public Page() {
-        layout = new Layout();
-        detailLayout = new Layout();
-        permissions = new Permissions();
-    }
+	public void setId(String id) {
+		this.id = id;
+	}
 
-    //**************************************************************************
-    // Reset / init
-    //**************************************************************************
+	@XmlAttribute(required = true)
+	@Required
+	@FieldSize(50)
+	public String getTitle() {
+		return title;
+	}
 
-    public void init() {
-        assert title != null;
-        assert description != null;
+	public void setTitle(String title) {
+		this.title = title;
+	}
 
-        if(navigationRoot == null) {
-            actualNavigationRoot = NavigationRoot.INHERIT;
-            navigationRoot = actualNavigationRoot.name();
-        } else {
-            actualNavigationRoot = NavigationRoot.valueOf(navigationRoot);
-        }
+	@XmlAttribute(required = true)
+	@Required
+	public String getDescription() {
+		return description;
+	}
 
-        if(layout != null) {
-            layout.init();
-        }
-        if(detailLayout != null) {
-            detailLayout.init();
-        }
-        if(permissions != null) {
-            permissions.init();
-        }
-    }
+	public void setDescription(String description) {
+		this.description = description;
+	}
 
-    //**************************************************************************
-    // Getters/Setters
-    //**************************************************************************
+	@XmlElement()
+	public Layout getLayout() {
+		return layout;
+	}
 
-    @XmlAttribute(required = true)
-    @Required
-    public String getId() {
-        return id;
-    }
+	public void setLayout(Layout layout) {
+		this.layout = layout;
+	}
 
-    public void setId(String id) {
-        this.id = id;
-    }
+	@XmlElement()
+	public Layout getDetailLayout() {
+		return detailLayout;
+	}
 
-    @XmlAttribute(required = true)
-    @Required
-    @FieldSize(50)
-    public String getTitle() {
-        return title;
-    }
+	public void setDetailLayout(Layout detailLayout) {
+		this.detailLayout = detailLayout;
+	}
 
-    public void setTitle(String title) {
-        this.title = title;
-    }
+	@XmlElement()
+	public Permissions getPermissions() {
+		return permissions;
+	}
 
-    @XmlAttribute(required = true)
-    @Required
-    public String getDescription() {
-        return description;
-    }
+	public void setPermissions(Permissions permissions) {
+		this.permissions = permissions;
+	}
 
-    public void setDescription(String description) {
-        this.description = description;
-    }
+	@XmlAttribute(required = true)
+	public String getNavigationRoot() {
+		return navigationRoot;
+	}
 
-    @XmlElement()
-    public Layout getLayout() {
-        return layout;
-    }
+	public void setNavigationRoot(String navigationRoot) {
+		this.navigationRoot = navigationRoot;
+	}
 
-    public void setLayout(Layout layout) {
-        this.layout = layout;
-    }
-
-    @XmlElement()
-    public Layout getDetailLayout() {
-        return detailLayout;
-    }
-
-    public void setDetailLayout(Layout detailLayout) {
-        this.detailLayout = detailLayout;
-    }
-
-    @XmlElement()
-    public Permissions getPermissions() {
-        return permissions;
-    }
-
-    public void setPermissions(Permissions permissions) {
-        this.permissions = permissions;
-    }
-
-    @XmlAttribute(required = true)
-    public String getNavigationRoot() {
-        return navigationRoot;
-    }
-
-    public void setNavigationRoot(String navigationRoot) {
-        this.navigationRoot = navigationRoot;
-    }
-
-    public NavigationRoot getActualNavigationRoot() {
-        return actualNavigationRoot;
-    }
+	public NavigationRoot getActualNavigationRoot() {
+		return actualNavigationRoot;
+	}
 }
