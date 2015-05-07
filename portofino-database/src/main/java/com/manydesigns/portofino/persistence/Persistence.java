@@ -1,23 +1,3 @@
-/*
- * Copyright (C) 2005-2015 ManyDesigns srl.  All rights reserved.
- * http://www.manydesigns.com/
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 3 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
- */
-
 package com.manydesigns.portofino.persistence;
 
 import com.manydesigns.elements.util.ElementsFileUtils;
@@ -60,27 +40,11 @@ import java.sql.Connection;
 import java.text.MessageFormat;
 import java.util.*;
 
-/**
- * @author Paolo Predonzani - paolo.predonzani@manydesigns.com
- * @author Angelo Lupo - angelo.lupo@manydesigns.com
- * @author Giampiero Granatella - giampiero.granatella@manydesigns.com
- * @author Alessio Stalla - alessio.stalla@manydesigns.com
- */
 public class Persistence {
-	public static final String copyright = "Copyright (c) 2005-2015, ManyDesigns srl";
-
-	// **************************************************************************
-	// Constants
-	// **************************************************************************
-
 	public static final String APP_DBS_DIR = "dbs";
 	public static final String APP_MODEL_FILE = "portofino-model.xml";
 
 	public final static String changelogFileNameTemplate = "{0}-changelog.xml";
-
-	// **************************************************************************
-	// Fields
-	// **************************************************************************
 
 	protected final DatabasePlatformsRegistry databasePlatformsRegistry;
 	protected Model model;
@@ -94,15 +58,7 @@ public class Persistence {
 	@Inject(BaseModule.CACHE_RESET_LISTENER_REGISTRY)
 	public CacheResetListenerRegistry cacheResetListenerRegistry;
 
-	// **************************************************************************
-	// Logging
-	// **************************************************************************
-
 	public static final Logger logger = LoggerFactory.getLogger(Persistence.class);
-
-	// **************************************************************************
-	// Constructors
-	// **************************************************************************
 
 	public Persistence(File appDir, org.apache.commons.configuration.Configuration configuration, DatabasePlatformsRegistry databasePlatformsRegistry) {
 		this.appDir = appDir;
@@ -122,10 +78,6 @@ public class Persistence {
 
 		setups = new HashMap<String, HibernateDatabaseSetup>();
 	}
-
-	// **************************************************************************
-	// Model loading
-	// **************************************************************************
 
 	public synchronized void loadXmlModel() {
 		logger.info("Loading xml model from file: {}", appModelFile.getAbsolutePath());
@@ -258,10 +210,6 @@ public class Persistence {
 		cacheResetListenerRegistry.fireReset(new CacheResetEvent(this));
 	}
 
-	// **************************************************************************
-	// Database stuff
-	// **************************************************************************
-
 	public ConnectionProvider getConnectionProvider(String databaseName) {
 		for (Database database : model.getDatabases()) {
 			if (database.getDatabaseName().equals(databaseName)) {
@@ -279,10 +227,6 @@ public class Persistence {
 		return databasePlatformsRegistry;
 	}
 
-	// **************************************************************************
-	// Model access
-	// **************************************************************************
-
 	public Model getModel() {
 		return model;
 	}
@@ -299,10 +243,6 @@ public class Persistence {
 		model.getDatabases().remove(sourceDatabase);
 		model.getDatabases().add(targetDatabase);
 	}
-
-	// **************************************************************************
-	// Persistance
-	// **************************************************************************
 
 	public Session getSession(String databaseName) {
 		return ensureDatabaseSetup(databaseName).getThreadSession();
@@ -350,10 +290,6 @@ public class Persistence {
 		return new TableAccessor(table);
 	}
 
-	// **************************************************************************
-	// User
-	// **************************************************************************
-
 	public void shutdown() {
 		for (HibernateDatabaseSetup setup : setups.values()) {
 			// TODO It is the responsibility of the application to ensure that
@@ -366,10 +302,6 @@ public class Persistence {
 			connectionProvider.shutdown();
 		}
 	}
-
-	// **************************************************************************
-	// App directories and files
-	// **************************************************************************
 
 	public String getName() {
 		return getPortofinoProperties().getString(PortofinoProperties.APP_NAME);

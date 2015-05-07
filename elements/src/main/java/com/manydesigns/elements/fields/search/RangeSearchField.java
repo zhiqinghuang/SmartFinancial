@@ -9,7 +9,6 @@ import org.jetbrains.annotations.NotNull;
 import javax.servlet.http.HttpServletRequest;
 
 public class RangeSearchField extends AbstractSearchField {
-	public static final String copyright = "Copyright (c) 2005-2015, ManyDesigns srl";
 
 	public final static String MIN_SUFFIX = "_min";
 	public final static String MAX_SUFFIX = "_max";

@@ -7,7 +7,6 @@ import org.apache.commons.configuration.Configuration;
 import java.lang.annotation.Annotation;
 
 public class CommonsConfigurationEntryAccessor implements PropertyAccessor {
-	public static final String copyright = "Copyright (c) 2005-2015, ManyDesigns srl";
 
 	protected final String name;
 	protected final Label labelAnnotation;

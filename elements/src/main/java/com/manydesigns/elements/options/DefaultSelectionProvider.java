@@ -117,8 +117,6 @@ public class DefaultSelectionProvider implements SelectionProvider {
 	}
 
 	class DefaultSelectionModel implements SelectionModel {
-		public static final String copyright = "Copyright (c) 2005-2015, ManyDesigns srl";
-
 		private final Object[] values;
 		private final String[] labelSearches;
 		private final Map<Object, Option>[] optionsArray;

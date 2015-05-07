@@ -1,10 +1,15 @@
 package com.manydesigns.portofino.servlets;
 
-import javax.servlet.*;
 import java.io.IOException;
 
+import javax.servlet.Filter;
+import javax.servlet.FilterChain;
+import javax.servlet.FilterConfig;
+import javax.servlet.ServletException;
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
+
 public class UTF8ResponseFilter implements Filter {
-	public static final String copyright = "Copyright (c) 2005-2015, ManyDesigns srl";
 
 	public void init(FilterConfig filterConfig) throws ServletException {
 	}

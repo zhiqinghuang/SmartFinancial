@@ -1,23 +1,3 @@
-/*
- * Copyright (C) 2005-2015 ManyDesigns srl.  All rights reserved.
- * http://www.manydesigns.com/
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 3 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
- */
-
 package com.manydesigns.portofino.pageactions.chart.jfreechart;
 
 import com.manydesigns.elements.ElementsThreadLocals;
@@ -54,346 +34,270 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 
-/*
-* @author Paolo Predonzani     - paolo.predonzani@manydesigns.com
-* @author Angelo Lupo          - angelo.lupo@manydesigns.com
-* @author Giampiero Granatella - giampiero.granatella@manydesigns.com
-* @author Alessio Stalla       - alessio.stalla@manydesigns.com
-*/
 @RequiresPermissions(level = AccessLevel.VIEW)
 @ScriptTemplate("script_template.groovy")
 @ConfigurationClass(JFreeChartConfiguration.class)
 @PageActionName("Chart (with JFreeChart)")
 public class JFreeChartAction extends AbstractPageAction {
-    public static final String copyright =
-            "Copyright (c) 2005-2015, ManyDesigns srl";
+	public static final String CHART_FILENAME_FORMAT = "chart-{0}.png";
 
-    //**************************************************************************
-    // Constants
-    //**************************************************************************
+	@Inject(DatabaseModule.PERSISTENCE)
+	public Persistence persistence;
 
-    public static final String CHART_FILENAME_FORMAT = "chart-{0}.png";
+	public String chartId;
 
-    //**************************************************************************
-    // Injections
-    //**************************************************************************
+	public int width = 470;
+	public int height = 354;
+	public boolean antiAlias = true;
+	public boolean borderVisible = true;
 
-    @Inject(DatabaseModule.PERSISTENCE)
-    public Persistence persistence;
+	public JFreeChartConfiguration chartConfiguration;
 
-    //**************************************************************************
-    // Web parameters
-    //**************************************************************************
+	public Form form;
+	public JFreeChart chart;
+	public JFreeChartInstance jfreeChartInstance;
+	public File file;
 
-    public String chartId;
+	public static final Logger logger = LoggerFactory.getLogger(JFreeChartAction.class);
 
-    public int width = 470;
-    public int height = 354;
-    public boolean antiAlias = true;
-    public boolean borderVisible = true;
+	@DefaultHandler
+	public Resolution execute() {
+		if (chartConfiguration == null) {
+			return forwardToPageActionNotConfigured();
+		}
 
-    //**************************************************************************
-    // Model metadata
-    //**************************************************************************
+		try {
+			// Run/generate the chart
+			try {
+				Thread.currentThread().setContextClassLoader(Class.class.getClassLoader());
+				generateChart();
+			} finally {
+				Thread.currentThread().setContextClassLoader(JFreeChartAction.class.getClassLoader());
+			}
 
-    public JFreeChartConfiguration chartConfiguration;
+			chartId = RandomUtil.createRandomId();
 
-    //**************************************************************************
-    // Presentation elements
-    //**************************************************************************
+			String actionurl = context.getActionPath();
+			UrlBuilder chartResolution = new UrlBuilder(context.getLocale(), actionurl, false).addParameter("chartId", chartId).addParameter("chart", "");
+			String url = context.getRequest().getContextPath() + chartResolution.toString();
 
-    public Form form;
-    public JFreeChart chart;
-    public JFreeChartInstance jfreeChartInstance;
-    public File file;
+			file = RandomUtil.getTempCodeFile(CHART_FILENAME_FORMAT, chartId);
 
-    public static final Logger logger =
-            LoggerFactory.getLogger(JFreeChartAction.class);
+			jfreeChartInstance = new JFreeChartInstance(chart, file, chartId, "Chart: " + chartConfiguration.getName(), width, height, url);
+		} catch (Throwable e) {
+			logger.error("Chart exception", e);
+			return forwardToPageActionError(e);
+		}
 
-    //**************************************************************************
-    // Action default execute method
-    //**************************************************************************
+		return forwardTo("/m/chart/jfreechart/display.jsp");
+	}
 
-    @DefaultHandler
-    public Resolution execute() {
-        if(chartConfiguration == null) {
-            return forwardToPageActionNotConfigured();
-        }
+	public void generateChart() {
+		ChartGenerator chartGenerator;
 
-        try {
-            // Run/generate the chart
-            try {
-                Thread.currentThread().setContextClassLoader(Class.class.getClassLoader());
-                generateChart();
-            } finally {
-                Thread.currentThread().setContextClassLoader(JFreeChartAction.class.getClassLoader());
-            }
+		if (chartConfiguration.getGeneratorClass() == null) {
+			throw new IllegalStateException("Invalid chart type: " + chartConfiguration.getActualType());
+		}
+		try {
+			chartGenerator = chartConfiguration.getGeneratorClass().newInstance();
+		} catch (Exception e) {
+			throw new RuntimeException("Invalid generator for chart", e);
+		}
 
-            chartId = RandomUtil.createRandomId();
+		chartGenerator.setAntiAlias(antiAlias);
+		chartGenerator.setBorderVisible(borderVisible);
+		chartGenerator.setHeight(height);
+		chartGenerator.setWidth(width);
+		chart = chartGenerator.generate(chartConfiguration, persistence, context.getLocale());
+	}
 
-            String actionurl = context.getActionPath();
-            UrlBuilder chartResolution =
-                    new UrlBuilder(context.getLocale(), actionurl, false)
-                            .addParameter("chartId", chartId)
-                            .addParameter("chart", "");
-            String url = context.getRequest().getContextPath() + chartResolution.toString();
+	public Resolution chart() throws FileNotFoundException {
+		final File file = RandomUtil.getTempCodeFile(CHART_FILENAME_FORMAT, chartId);
+		if (!file.exists()) {
+			return new ErrorResolution(404);
+		}
+		final InputStream inputStream = new FileInputStream(file);
 
-            file = RandomUtil.getTempCodeFile(CHART_FILENAME_FORMAT, chartId);
+		// Cache the file, expire after 12h
+		int expiresAfter = 12 * 60 * 60 * 1000;
+		long now = System.currentTimeMillis();
+		HttpServletResponse response = context.getResponse();
+		response.setHeader("Cache-Control", "max-age=" + expiresAfter);
+		response.setDateHeader("Last-Modified", now);
+		response.setDateHeader("Expires", now + expiresAfter);
+		response.setHeader("Pragma", "");
 
-            jfreeChartInstance =
-                    new JFreeChartInstance(chart, file, chartId, "Chart: " + chartConfiguration.getName(),
-                                           width, height, url);
-        } catch (Throwable e) {
-            logger.error("Chart exception", e);
-            return forwardToPageActionError(e);
-        }
+		return new StreamingResolution("image/png", inputStream) {
+			@Override
+			protected void stream(HttpServletResponse response) throws Exception {
+				super.stream(response);
+				if (!file.delete()) {
+					logger.warn("Could not delete temporary file for chart: " + file.getAbsolutePath());
+				}
+			}
+		};
+	}
 
-        return forwardTo("/m/chart/jfreechart/display.jsp");
-    }
+	public static final String[][] CONFIGURATION_FIELDS = { { "name", "type", "orientation", "legend", "database", "query", "urlExpression" } };
 
-    public void generateChart() {
-        ChartGenerator chartGenerator;
+	public static final String[] chartTypes1D = { JFreeChartConfiguration.Type.PIE.name(), JFreeChartConfiguration.Type.PIE3D.name(), JFreeChartConfiguration.Type.RING.name() };
 
-        if(chartConfiguration.getGeneratorClass() == null) {
-            throw new IllegalStateException("Invalid chart type: " + chartConfiguration.getActualType());
-        }
-        try {
-            chartGenerator = chartConfiguration.getGeneratorClass().newInstance();
-        } catch (Exception e) {
-            throw new RuntimeException("Invalid generator for chart", e);
-        }
+	public static final String[] chartTypes2D = { JFreeChartConfiguration.Type.AREA.name(), JFreeChartConfiguration.Type.BAR.name(), JFreeChartConfiguration.Type.BAR3D.name(), JFreeChartConfiguration.Type.LINE.name(), JFreeChartConfiguration.Type.LINE3D.name(), JFreeChartConfiguration.Type.STACKED_BAR.name(), JFreeChartConfiguration.Type.STACKED_BAR_3D.name() };
 
-        chartGenerator.setAntiAlias(antiAlias);
-        chartGenerator.setBorderVisible(borderVisible);
-        chartGenerator.setHeight(height);
-        chartGenerator.setWidth(width);
-        chart = chartGenerator.generate(chartConfiguration, persistence, context.getLocale());
-    }
+	public final String[] chartTypeValues = new String[chartTypes1D.length + chartTypes2D.length + 2];
+	public final String[] chartTypeLabels = new String[chartTypeValues.length];
 
-    public Resolution chart() throws FileNotFoundException {
-        final File file = RandomUtil.getTempCodeFile(CHART_FILENAME_FORMAT, chartId);
-        if(!file.exists()) {
-            return new ErrorResolution(404);
-        }
-        final InputStream inputStream = new FileInputStream(file);
+	@Button(list = "pageHeaderButtons", titleKey = "configure", order = 1, icon = Button.ICON_WRENCH)
+	@RequiresPermissions(level = AccessLevel.DEVELOP)
+	public Resolution configure() {
+		prepareConfigurationForms();
+		return new ForwardResolution("/m/chart/jfreechart/configure.jsp");
+	}
 
-        //Cache the file, expire after 12h
-        int expiresAfter = 12 * 60 * 60 * 1000;
-        long now = System.currentTimeMillis();
-        HttpServletResponse response = context.getResponse();
-        response.setHeader("Cache-Control", "max-age=" + expiresAfter);
-        response.setDateHeader("Last-Modified", now);
-        response.setDateHeader("Expires", now + expiresAfter);
-        response.setHeader("Pragma", "");
+	@Override
+	protected void prepareConfigurationForms() {
+		super.prepareConfigurationForms();
 
-        return new StreamingResolution("image/png", inputStream) {
-            @Override
-            protected void stream(HttpServletResponse response) throws Exception {
-                super.stream(response);
-                if(!file.delete()) {
-                    logger.warn("Could not delete temporary file for chart: " + file.getAbsolutePath());
-                }
-            }
-        };
-    }
+		String prefix = "com.manydesigns.portofino.jfreechart.type.";
+		chartTypeValues[0] = "--1D";
+		chartTypeLabels[0] = "-- 1D charts --";
+		for (int i = 0; i < chartTypes1D.length; i++) {
+			chartTypeValues[i + 1] = chartTypes1D[i];
+			chartTypeLabels[i + 1] = ElementsThreadLocals.getText(prefix + chartTypes1D[i], chartTypes1D[i]);
+		}
+		chartTypeValues[chartTypes1D.length + 1] = "--2D";
+		chartTypeLabels[chartTypes1D.length + 1] = "-- 2D charts --";
+		for (int i = 0; i < chartTypes2D.length; i++) {
+			chartTypeValues[i + 2 + chartTypes1D.length] = chartTypes2D[i];
+			chartTypeLabels[i + 2 + chartTypes1D.length] = ElementsThreadLocals.getText(prefix + chartTypes2D[i], chartTypes2D[i]);
+		}
 
-    //**************************************************************************
-    // Configuration
-    //**************************************************************************
+		SelectionProvider databaseSelectionProvider = SelectionProviderLogic.createSelectionProvider("database", persistence.getModel().getDatabases(), Database.class, null, new String[] { "databaseName" });
+		DefaultSelectionProvider typeSelectionProvider = new DefaultSelectionProvider("type");
+		for (int i = 0; i < chartTypeValues.length; i++) {
+			typeSelectionProvider.appendRow(chartTypeValues[i], chartTypeLabels[i], true);
+		}
+		String[] orientationValues = { JFreeChartConfiguration.Orientation.HORIZONTAL.name(), JFreeChartConfiguration.Orientation.VERTICAL.name() };
+		String[] orientationLabels = { "Horizontal", "Vertical" };
+		DefaultSelectionProvider orientationSelectionProvider = new DefaultSelectionProvider("orientation");
+		for (int i = 0; i < orientationValues.length; i++) {
+			orientationSelectionProvider.appendRow(orientationValues[i], orientationLabels[i], true);
+		}
+		form = new FormBuilder(JFreeChartConfiguration.class).configFields(CONFIGURATION_FIELDS).configFieldSetNames("Chart").configSelectionProvider(typeSelectionProvider, "type").configSelectionProvider(orientationSelectionProvider, "orientation").configSelectionProvider(databaseSelectionProvider, "database").build();
+		form.readFromObject(chartConfiguration);
+	}
 
-    public static final String[][] CONFIGURATION_FIELDS =
-            {{"name", "type", "orientation", "legend", "database", "query", "urlExpression"}};
+	@Button(list = "configuration", key = "update.configuration", order = 1, type = Button.TYPE_PRIMARY)
+	@RequiresPermissions(level = AccessLevel.DEVELOP)
+	public Resolution updateConfiguration() {
+		prepareConfigurationForms();
+		form.readFromObject(chartConfiguration);
+		form.readFromRequest(context.getRequest());
+		readPageConfigurationFromRequest();
+		boolean valid = form.validate();
+		valid = validatePageConfiguration() && valid;
+		Field typeField = form.findFieldByPropertyName("type");
+		String typeValue = typeField.getStringValue();
+		boolean placeHolderValue = typeValue != null && typeValue.startsWith("--");
+		if (placeHolderValue) {
+			valid = false;
+			String errorMessage = ElementsThreadLocals.getTextProvider().getText("elements.error.field.required");
+			typeField.getErrors().add(errorMessage);
+			SessionMessages.addErrorMessage("");
+		}
+		if (valid) {
+			updatePageConfiguration();
+			if (chartConfiguration == null) {
+				chartConfiguration = new JFreeChartConfiguration();
+			}
+			form.writeToObject(chartConfiguration);
+			saveConfiguration(chartConfiguration);
 
-    public static final String[] chartTypes1D = {
-        JFreeChartConfiguration.Type.PIE.name(),
-        JFreeChartConfiguration.Type.PIE3D.name(),
-        JFreeChartConfiguration.Type.RING.name()
-    };
+			SessionMessages.addInfoMessage(ElementsThreadLocals.getText("configuration.updated.successfully"));
+			return cancel();
+		} else {
+			return new ForwardResolution("/m/chart/jfreechart/configure.jsp");
+		}
+	}
 
-    public static final String[] chartTypes2D = {
-        JFreeChartConfiguration.Type.AREA.name(),
-        JFreeChartConfiguration.Type.BAR.name(),
-        JFreeChartConfiguration.Type.BAR3D.name(),
-        JFreeChartConfiguration.Type.LINE.name(),
-        JFreeChartConfiguration.Type.LINE3D.name(),
-        JFreeChartConfiguration.Type.STACKED_BAR.name(),
-        JFreeChartConfiguration.Type.STACKED_BAR_3D.name()
-    };
+	public Resolution preparePage() {
+		if (!pageInstance.getParameters().isEmpty()) {
+			return new ErrorResolution(404);
+		}
+		chartConfiguration = (JFreeChartConfiguration) pageInstance.getConfiguration();
+		return null;
+	}
 
-    public final String[] chartTypeValues = new String[chartTypes1D.length + chartTypes2D.length + 2];
-    public final String[] chartTypeLabels = new String[chartTypeValues.length];
+	public String getChartId() {
+		return chartId;
+	}
 
-    @Button(list = "pageHeaderButtons", titleKey = "configure", order = 1, icon = Button.ICON_WRENCH)
-    @RequiresPermissions(level = AccessLevel.DEVELOP)
-    public Resolution configure() {
-        prepareConfigurationForms();
-        return new ForwardResolution("/m/chart/jfreechart/configure.jsp");
-    }
+	public void setChartId(String chartId) {
+		this.chartId = chartId;
+	}
 
-    @Override
-    protected void prepareConfigurationForms() {
-        super.prepareConfigurationForms();
+	public int getWidth() {
+		return width;
+	}
 
-        String prefix = "com.manydesigns.portofino.jfreechart.type.";
-        chartTypeValues[0] = "--1D";
-        chartTypeLabels[0] = "-- 1D charts --";
-        for(int i = 0; i < chartTypes1D.length; i++) {
-            chartTypeValues[i + 1] = chartTypes1D[i];
-            chartTypeLabels[i + 1] = ElementsThreadLocals.getText(prefix + chartTypes1D[i], chartTypes1D[i]);
-        }
-        chartTypeValues[chartTypes1D.length + 1] = "--2D";
-        chartTypeLabels[chartTypes1D.length + 1] = "-- 2D charts --";
-        for(int i = 0; i < chartTypes2D.length; i++) {
-            chartTypeValues[i + 2 + chartTypes1D.length] = chartTypes2D[i];
-            chartTypeLabels[i + 2 + chartTypes1D.length] =
-                    ElementsThreadLocals.getText(prefix + chartTypes2D[i], chartTypes2D[i]);
-        }
+	public void setWidth(int width) {
+		this.width = width;
+	}
 
-        SelectionProvider databaseSelectionProvider =
-                SelectionProviderLogic.createSelectionProvider("database",
-                        persistence.getModel().getDatabases(),
-                        Database.class,
-                        null,
-                        new String[]{"databaseName"});
-        DefaultSelectionProvider typeSelectionProvider = new DefaultSelectionProvider("type");
-        for(int i = 0; i < chartTypeValues.length; i++) {
-            typeSelectionProvider.appendRow(chartTypeValues[i], chartTypeLabels[i], true);
-        }
-        String[] orientationValues =
-                { JFreeChartConfiguration.Orientation.HORIZONTAL.name(), JFreeChartConfiguration.Orientation.VERTICAL.name() };
-        String[] orientationLabels = { "Horizontal", "Vertical" };
-        DefaultSelectionProvider orientationSelectionProvider = new DefaultSelectionProvider("orientation");
-        for(int i = 0; i < orientationValues.length; i++) {
-            orientationSelectionProvider.appendRow(orientationValues[i], orientationLabels[i], true);
-        }
-        form = new FormBuilder(JFreeChartConfiguration.class)
-                .configFields(CONFIGURATION_FIELDS)
-                .configFieldSetNames("Chart")
-                .configSelectionProvider(typeSelectionProvider, "type")
-                .configSelectionProvider(orientationSelectionProvider, "orientation")
-                .configSelectionProvider(databaseSelectionProvider, "database")
-                .build();
-        form.readFromObject(chartConfiguration);
-    }
+	public int getHeight() {
+		return height;
+	}
 
-    @Button(list = "configuration", key = "update.configuration", order = 1, type = Button.TYPE_PRIMARY)
-    @RequiresPermissions(level = AccessLevel.DEVELOP)
-    public Resolution updateConfiguration() {
-        prepareConfigurationForms();
-        form.readFromObject(chartConfiguration);
-        form.readFromRequest(context.getRequest());
-        readPageConfigurationFromRequest();
-        boolean valid = form.validate();
-        valid = validatePageConfiguration() && valid;
-        Field typeField = form.findFieldByPropertyName("type");
-        String typeValue = typeField.getStringValue();
-        boolean placeHolderValue =
-                typeValue != null && typeValue.startsWith("--");
-        if(placeHolderValue) {
-            valid = false;
-            String errorMessage =
-                    ElementsThreadLocals.getTextProvider().getText("elements.error.field.required");
-            typeField.getErrors().add(errorMessage);
-            SessionMessages.addErrorMessage("");
-        }
-        if (valid) {
-            updatePageConfiguration();
-            if(chartConfiguration == null) {
-                chartConfiguration = new JFreeChartConfiguration();
-            }
-            form.writeToObject(chartConfiguration);
-            saveConfiguration(chartConfiguration);
+	public void setHeight(int height) {
+		this.height = height;
+	}
 
-            SessionMessages.addInfoMessage(ElementsThreadLocals.getText("configuration.updated.successfully"));
-            return cancel();
-        } else {
-            return new ForwardResolution("/m/chart/jfreechart/configure.jsp");
-        }
-    }
+	public boolean isAntiAlias() {
+		return antiAlias;
+	}
 
-    public Resolution preparePage() {
-        if(!pageInstance.getParameters().isEmpty()) {
-            return new ErrorResolution(404);
-        }
-        chartConfiguration = (JFreeChartConfiguration) pageInstance.getConfiguration();
-        return null;
-    }
+	public void setAntiAlias(boolean antiAlias) {
+		this.antiAlias = antiAlias;
+	}
 
-    //**************************************************************************
-    // Getter/setter
-    //**************************************************************************
+	public boolean isBorderVisible() {
+		return borderVisible;
+	}
 
+	public void setBorderVisible(boolean borderVisible) {
+		this.borderVisible = borderVisible;
+	}
 
-    public String getChartId() {
-        return chartId;
-    }
+	public JFreeChartConfiguration getChartConfiguration() {
+		return chartConfiguration;
+	}
 
-    public void setChartId(String chartId) {
-        this.chartId = chartId;
-    }
+	public void setChartConfiguration(JFreeChartConfiguration chartConfiguration) {
+		this.chartConfiguration = chartConfiguration;
+	}
 
-    public int getWidth() {
-        return width;
-    }
+	public Form getForm() {
+		return form;
+	}
 
-    public void setWidth(int width) {
-        this.width = width;
-    }
+	public void setForm(Form form) {
+		this.form = form;
+	}
 
-    public int getHeight() {
-        return height;
-    }
+	public JFreeChart getChart() {
+		return chart;
+	}
 
-    public void setHeight(int height) {
-        this.height = height;
-    }
+	public void setChart(JFreeChart chart) {
+		this.chart = chart;
+	}
 
-    public boolean isAntiAlias() {
-        return antiAlias;
-    }
+	public JFreeChartInstance getJfreeChartInstance() {
+		return jfreeChartInstance;
+	}
 
-    public void setAntiAlias(boolean antiAlias) {
-        this.antiAlias = antiAlias;
-    }
-
-    public boolean isBorderVisible() {
-        return borderVisible;
-    }
-
-    public void setBorderVisible(boolean borderVisible) {
-        this.borderVisible = borderVisible;
-    }
-
-    public JFreeChartConfiguration getChartConfiguration() {
-        return chartConfiguration;
-    }
-
-    public void setChartConfiguration(JFreeChartConfiguration chartConfiguration) {
-        this.chartConfiguration = chartConfiguration;
-    }
-
-    public Form getForm() {
-        return form;
-    }
-
-    public void setForm(Form form) {
-        this.form = form;
-    }
-
-    public JFreeChart getChart() {
-        return chart;
-    }
-
-    public void setChart(JFreeChart chart) {
-        this.chart = chart;
-    }
-
-    public JFreeChartInstance getJfreeChartInstance() {
-        return jfreeChartInstance;
-    }
-
-    public void setJfreeChartInstance(JFreeChartInstance jfreeChartInstance) {
-        this.jfreeChartInstance = jfreeChartInstance;
-    }
+	public void setJfreeChartInstance(JFreeChartInstance jfreeChartInstance) {
+		this.jfreeChartInstance = jfreeChartInstance;
+	}
 
 }

@@ -1,23 +1,3 @@
-/*
- * Copyright (C) 2005-2015 ManyDesigns srl.  All rights reserved.
- * http://www.manydesigns.com/
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 3 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
- */
-
 package com.manydesigns.portofino.pageactions.crud.configuration;
 
 import com.manydesigns.elements.annotations.CssClass;
@@ -38,224 +18,188 @@ import javax.xml.bind.annotation.*;
 import java.util.ArrayList;
 import java.util.List;
 
-/*
-* @author Paolo Predonzani     - paolo.predonzani@manydesigns.com
-* @author Angelo Lupo          - angelo.lupo@manydesigns.com
-* @author Giampiero Granatella - giampiero.granatella@manydesigns.com
-* @author Alessio Stalla       - alessio.stalla@manydesigns.com
-*/
-
 @XmlRootElement(name = "configuration")
 @XmlAccessorType(value = XmlAccessType.NONE)
 public class CrudConfiguration implements PageActionConfiguration, ConfigurationWithDefaults {
-    public static final String copyright =
-            "Copyright (c) 2005-2015, ManyDesigns srl";
-    
+	protected final List<CrudProperty> properties;
+	protected final List<SelectionProviderReference> selectionProviders;
 
-    //**************************************************************************
-    // Fields
-    //**************************************************************************
+	protected String name;
+	protected String database;
+	protected String query;
+	protected String searchTitle;
+	protected String createTitle;
+	protected String readTitle;
+	protected String editTitle;
+	protected String variable;
 
-    protected final List<CrudProperty> properties;
-    protected final List<SelectionProviderReference> selectionProviders;
+	protected boolean largeResultSet;
 
-    protected String name;
-    protected String database;
-    protected String query;
-    protected String searchTitle;
-    protected String createTitle;
-    protected String readTitle;
-    protected String editTitle;
-    protected String variable;
+	protected Integer rowsPerPage;
 
-    protected boolean largeResultSet;
+	@Inject(DatabaseModule.PERSISTENCE)
+	public Persistence persistence;
 
-    protected Integer rowsPerPage;
+	protected Table actualTable;
+	protected Database actualDatabase;
 
-    @Inject(DatabaseModule.PERSISTENCE)
-    public Persistence persistence;
+	public CrudConfiguration() {
+		properties = new ArrayList<CrudProperty>();
+		selectionProviders = new ArrayList<SelectionProviderReference>();
+	}
 
-    //**************************************************************************
-    // Fields for wire-up
-    //**************************************************************************
+	public CrudConfiguration(String name, String database, String query, String searchTitle, String createTitle, String readTitle, String editTitle) {
+		this();
+		this.name = name;
+		this.database = database;
+		this.query = query;
+		this.searchTitle = searchTitle;
+		this.createTitle = createTitle;
+		this.readTitle = readTitle;
+		this.editTitle = editTitle;
+	}
 
-    protected Table actualTable;
-    protected Database actualDatabase;
+	public void init() {
+		actualDatabase = DatabaseLogic.findDatabaseByName(persistence.getModel(), database);
+		if (actualDatabase != null) {
+			actualTable = QueryUtils.getTableFromQueryString(actualDatabase, query);
+		}
+		for (CrudProperty property : properties) {
+			property.init(persistence.getModel());
+		}
+		// TODO gestire table == null
+		for (SelectionProviderReference ref : selectionProviders) {
+			ref.init(getActualTable());
+		}
+	}
 
-    //**************************************************************************
-    // Constructors
-    //**************************************************************************
+	public void setupDefaults() {
+		rowsPerPage = 10;
+	}
 
-    public CrudConfiguration() {
-        properties = new ArrayList<CrudProperty>();
-        selectionProviders = new ArrayList<SelectionProviderReference>();
-    }
+	@XmlElementWrapper(name = "properties")
+	@XmlElement(name = "property", type = CrudProperty.class)
+	public List<CrudProperty> getProperties() {
+		return properties;
+	}
 
-    public CrudConfiguration(String name, String database, String query,
-                             String searchTitle, String createTitle,
-                             String readTitle, String editTitle) {
-        this();
-        this.name = name;
-        this.database = database;
-        this.query = query;
-        this.searchTitle = searchTitle;
-        this.createTitle = createTitle;
-        this.readTitle = readTitle;
-        this.editTitle = editTitle;
-    }
+	@LabelI18N("name")
+	@XmlAttribute(required = true)
+	public String getName() {
+		return name;
+	}
 
-    //**************************************************************************
-    // Configuration implementation
-    //**************************************************************************
+	public void setName(String name) {
+		this.name = name;
+	}
 
-    public void init() {
-        actualDatabase = DatabaseLogic.findDatabaseByName(persistence.getModel(), database);
-        if(actualDatabase != null) {
-            actualTable = QueryUtils.getTableFromQueryString(actualDatabase, query);
-        }
-        for (CrudProperty property : properties) {
-            property.init(persistence.getModel());
-        }
-        //TODO gestire table == null
-        for(SelectionProviderReference ref : selectionProviders) {
-            ref.init(getActualTable());
-        }
-    }
+	@XmlAttribute(required = true)
+	public String getDatabase() {
+		return database;
+	}
 
-    public void setupDefaults() {
-        rowsPerPage = 10;
-    }
+	public void setDatabase(String database) {
+		this.database = database;
+	}
 
-    //**************************************************************************
-    // Getters/setters
-    //**************************************************************************
+	public Database getActualDatabase() {
+		return actualDatabase;
+	}
 
-    @XmlElementWrapper(name="properties")
-    @XmlElement(name="property",type=CrudProperty.class)
-    public List<CrudProperty> getProperties() {
-        return properties;
-    }
+	public void setActualDatabase(Database actualDatabase) {
+		this.actualDatabase = actualDatabase;
+	}
 
-    @LabelI18N("name")
-    @XmlAttribute(required = true)
-    public String getName() {
-        return name;
-    }
+	@Multiline
+	@CssClass(BootstrapSizes.FILL_ROW)
+	@XmlAttribute(required = true)
+	public String getQuery() {
+		return query;
+	}
 
-    public void setName(String name) {
-        this.name = name;
-    }
+	public void setQuery(String query) {
+		this.query = query;
+	}
 
-    @XmlAttribute(required = true)
-    public String getDatabase() {
-        return database;
-    }
+	@CssClass(BootstrapSizes.FILL_ROW)
+	@XmlAttribute(required = false)
+	public String getSearchTitle() {
+		return searchTitle;
+	}
 
-    public void setDatabase(String database) {
-        this.database = database;
-    }
+	public void setSearchTitle(String searchTitle) {
+		this.searchTitle = searchTitle;
+	}
 
-    public Database getActualDatabase() {
-        return actualDatabase;
-    }
+	@CssClass(BootstrapSizes.FILL_ROW)
+	@XmlAttribute(required = false)
+	public String getCreateTitle() {
+		return createTitle;
+	}
 
-    public void setActualDatabase(Database actualDatabase) {
-        this.actualDatabase = actualDatabase;
-    }
+	public void setCreateTitle(String createTitle) {
+		this.createTitle = createTitle;
+	}
 
-    @Multiline
-    @CssClass(BootstrapSizes.FILL_ROW)
-    @XmlAttribute(required = true)
-    public String getQuery() {
-        return query;
-    }
+	@CssClass(BootstrapSizes.FILL_ROW)
+	@XmlAttribute(required = false)
+	public String getReadTitle() {
+		return readTitle;
+	}
 
-    public void setQuery(String query) {
-        this.query = query;
-    }
+	public void setReadTitle(String readTitle) {
+		this.readTitle = readTitle;
+	}
 
-    @CssClass(BootstrapSizes.FILL_ROW)
-    @XmlAttribute(required = false)
-    public String getSearchTitle() {
-        return searchTitle;
-    }
+	@CssClass(BootstrapSizes.FILL_ROW)
+	@XmlAttribute(required = false)
+	public String getEditTitle() {
+		return editTitle;
+	}
 
-    public void setSearchTitle(String searchTitle) {
-        this.searchTitle = searchTitle;
-    }
+	public void setEditTitle(String editTitle) {
+		this.editTitle = editTitle;
+	}
 
-    @CssClass(BootstrapSizes.FILL_ROW)
-    @XmlAttribute(required = false)
-    public String getCreateTitle() {
-        return createTitle;
-    }
+	@XmlAttribute(required = false)
+	public String getVariable() {
+		return variable;
+	}
 
-    public void setCreateTitle(String createTitle) {
-        this.createTitle = createTitle;
-    }
+	public void setVariable(String variable) {
+		this.variable = variable;
+	}
 
-    @CssClass(BootstrapSizes.FILL_ROW)
-    @XmlAttribute(required = false)
-    public String getReadTitle() {
-        return readTitle;
-    }
+	public String getActualVariable() {
+		return variable != null ? variable : name;
+	}
 
-    public void setReadTitle(String readTitle) {
-        this.readTitle = readTitle;
-    }
+	@XmlElementWrapper(name = "selectionProviders")
+	@XmlElements({ @XmlElement(name = "selectionProvider", type = SelectionProviderReference.class) })
+	public List<SelectionProviderReference> getSelectionProviders() {
+		return selectionProviders;
+	}
 
-    @CssClass(BootstrapSizes.FILL_ROW)
-    @XmlAttribute(required = false)
-    public String getEditTitle() {
-        return editTitle;
-    }
+	@XmlAttribute(required = true)
+	public boolean isLargeResultSet() {
+		return largeResultSet;
+	}
 
-    public void setEditTitle(String editTitle) {
-        this.editTitle = editTitle;
-    }
+	public void setLargeResultSet(boolean largeResultSet) {
+		this.largeResultSet = largeResultSet;
+	}
 
-    @XmlAttribute(required = false)
-    public String getVariable() {
-        return variable;
-    }
+	public Table getActualTable() {
+		return actualTable;
+	}
 
-    public void setVariable(String variable) {
-        this.variable = variable;
-    }
+	@CssClass(BootstrapSizes.COL_SM_1)
+	@XmlAttribute(required = false)
+	public Integer getRowsPerPage() {
+		return rowsPerPage;
+	}
 
-    public String getActualVariable() {
-        return variable != null ? variable : name;
-    }
-
-    @XmlElementWrapper(name="selectionProviders")
-    @XmlElements({
-          @XmlElement(name="selectionProvider",type=SelectionProviderReference.class)
-    })
-    public List<SelectionProviderReference> getSelectionProviders() {
-        return selectionProviders;
-    }
-
-    @XmlAttribute(required = true)
-    public boolean isLargeResultSet() {
-        return largeResultSet;
-    }
-
-    public void setLargeResultSet(boolean largeResultSet) {
-        this.largeResultSet = largeResultSet;
-    }
-
-    public Table getActualTable() {
-        return actualTable;
-    }
-
-    @CssClass(BootstrapSizes.COL_SM_1)
-    @XmlAttribute(required = false)
-    public Integer getRowsPerPage() {
-        return rowsPerPage;
-    }
-
-    public void setRowsPerPage(Integer rowsPerPage) {
-        this.rowsPerPage = rowsPerPage;
-    }
-
+	public void setRowsPerPage(Integer rowsPerPage) {
+		this.rowsPerPage = rowsPerPage;
+	}
 }

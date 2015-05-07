@@ -3,9 +3,6 @@ package com.manydesigns.portofino.actions;
 import com.manydesigns.portofino.stripes.AbstractActionBean;
 
 public class GAELoginAction extends AbstractActionBean {
-//    public static final String copyright =
-//            "Copyright (c) 2005-2015, ManyDesigns srl";
-//
 //    public static final Logger logger = LoggerFactory.getLogger(GAELoginAction.class);
 //
 //    protected String returnUrl;

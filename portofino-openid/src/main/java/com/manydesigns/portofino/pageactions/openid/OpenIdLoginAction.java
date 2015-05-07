@@ -44,243 +44,219 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/**
- * @author Paolo Predonzani     - paolo.predonzani@manydesigns.com
- * @author Angelo Lupo          - angelo.lupo@manydesigns.com
- * @author Giampiero Granatella - giampiero.granatella@manydesigns.com
- * @author Alessio Stalla       - alessio.stalla@manydesigns.com
- */
 @ScriptTemplate("script_template_openid.groovy")
 @PageActionName("OpenID Login")
 public class OpenIdLoginAction extends DefaultLoginAction implements PageAction {
-    public static final String copyright =
-            "Copyright (c) 2005-2015, ManyDesigns srl";
+	public static final String OPENID_DISCOVERED = "openID.discovered";
+	public static final String OPENID_CONSUMER_MANAGER = "openID.consumerManager";
+	public static final String OPENID_IDENTIFIER = "openID.identifier";
 
-    public static final String OPENID_DISCOVERED = "openID.discovered";
-    public static final String OPENID_CONSUMER_MANAGER = "openID.consumerManager";
-    public static final String OPENID_IDENTIFIER = "openID.identifier";
+	public Dispatch dispatch;
 
-    //--------------------------------------------------------------------------
-    // Properties
-    //--------------------------------------------------------------------------
+	public PageInstance pageInstance;
 
-    /**
-     * The dispatch property. Injected.
-     */
-    public Dispatch dispatch;
+	@Inject(BaseModule.PORTOFINO_CONFIGURATION)
+	public Configuration portofinoConfiguration;
 
-    /**
-     * The PageInstance property. Injected.
-     */
-    public PageInstance pageInstance;
+	public String openIdUrl;
+	public String openIdDestinationUrl;
+	public Map openIdParameterMap;
 
-    /**
-     * The global configuration object. Injected.
-     */
-    @Inject(BaseModule.PORTOFINO_CONFIGURATION)
-    public Configuration portofinoConfiguration;
+	protected String getLoginPage() {
+		return "/m/openid/pageactions/openid/openIdLogin.jsp";
+	}
 
-    public String openIdUrl;
-    public String openIdDestinationUrl;
-    public Map openIdParameterMap;
+	@Override
+	protected String getAuthenticationPage() {
+		return getLoginPage();
+	}
 
-    protected String getLoginPage() {
-        return "/m/openid/pageactions/openid/openIdLogin.jsp";
-    }
+	@Override
+	protected String getRememberedUserName(Serializable principal) {
+		return null;
+	}
 
-    @Override
-    protected String getAuthenticationPage() {
-        return getLoginPage();
-    }
+	public Resolution showOpenIDForm() throws ConsumerException, MessageException, DiscoveryException, MalformedURLException {
+		ConsumerManager manager = new ConsumerManager();
 
-    @Override
-    protected String getRememberedUserName(Serializable principal) {
-        return null;
-    }
+		// perform discovery on the user-supplied identifier
+		List discoveries = manager.discover(openIdUrl);
 
-    public Resolution showOpenIDForm()
-            throws ConsumerException, MessageException, DiscoveryException, MalformedURLException {
-        ConsumerManager manager = new ConsumerManager();
+		// attempt to associate with the OpenID provider
+		// and retrieve one service endpoint for authentication
+		DiscoveryInformation discovered = manager.associate(discoveries);
 
-        // perform discovery on the user-supplied identifier
-        List discoveries = manager.discover(openIdUrl);
+		UrlBuilder urlBuilder = new UrlBuilder(context.getLocale(), context.getActionPath(), false);
+		urlBuilder.setEvent("handleOpenIDLogin");
+		urlBuilder.addParameter("returnUrl", returnUrl);
+		urlBuilder.addParameter("cancelReturnUrl", cancelReturnUrl);
 
-        // attempt to associate with the OpenID provider
-        // and retrieve one service endpoint for authentication
-        DiscoveryInformation discovered = manager.associate(discoveries);
+		URL url = new URL(context.getRequest().getRequestURL().toString());
+		String port = url.getPort() > 0 ? ":" + url.getPort() : "";
+		String baseUrl = url.getProtocol() + "://" + url.getHost() + port;
+		String urlString = baseUrl + context.getRequest().getContextPath() + urlBuilder;
+		// obtain a AuthRequest message to be sent to the OpenID provider
+		AuthRequest authReq = manager.authenticate(discovered, urlString, baseUrl);
 
-        UrlBuilder urlBuilder = new UrlBuilder(context.getLocale(), context.getActionPath(), false);
-        urlBuilder.setEvent("handleOpenIDLogin");
-        urlBuilder.addParameter("returnUrl", returnUrl);
-        urlBuilder.addParameter("cancelReturnUrl", cancelReturnUrl);
+		// store the discovery information in the user's session for later use
+		// leave out for stateless operation / if there is no session
+		HttpSession session = context.getRequest().getSession();
+		session.setAttribute(OPENID_DISCOVERED, discovered);
+		session.setAttribute(OPENID_CONSUMER_MANAGER, manager);
 
-        URL url = new URL(context.getRequest().getRequestURL().toString());
-        String port = url.getPort() > 0 ? ":" + url.getPort() : "";
-        String baseUrl = url.getProtocol() + "://" + url.getHost() + port;
-        String urlString = baseUrl + context.getRequest().getContextPath() + urlBuilder;
-        // obtain a AuthRequest message to be sent to the OpenID provider
-        AuthRequest authReq = manager.authenticate(discovered, urlString, baseUrl);
+		String destinationUrl = authReq.getDestinationUrl(true);
 
-        // store the discovery information in the user's session for later use
-        // leave out for stateless operation / if there is no session
-        HttpSession session = context.getRequest().getSession();
-        session.setAttribute(OPENID_DISCOVERED, discovered);
-        session.setAttribute(OPENID_CONSUMER_MANAGER, manager);
+		if (destinationUrl.length() > 2000) {
+			if (authReq.isVersion2()) {
+				openIdDestinationUrl = authReq.getDestinationUrl(false);
+				openIdParameterMap = authReq.getParameterMap();
+				return new ForwardResolution("/m/openid/pageactions/openid/openIDFormRedirect.jsp");
+			} else {
+				SessionMessages.addErrorMessage("Cannot login, payload too big and OpenID version 2 not supported.");
+				return new ForwardResolution(getLoginPage());
+			}
+		} else {
+			return new RedirectResolution(destinationUrl, false);
+		}
+	}
 
-        String destinationUrl = authReq.getDestinationUrl(true);
+	public Resolution handleOpenIDLogin() throws DiscoveryException, AssociationException, MessageException {
+		// extract the parameters from the authentication response
+		// (which comes in as a HTTP request from the OpenID provider)
+		HttpServletRequest request = context.getRequest();
+		ParameterList openidResp = new ParameterList(request.getParameterMap());
 
-        if(destinationUrl.length() > 2000) {
-            if(authReq.isVersion2()) {
-                openIdDestinationUrl = authReq.getDestinationUrl(false);
-                openIdParameterMap = authReq.getParameterMap();
-                return new ForwardResolution("/m/openid/pageactions/openid/openIDFormRedirect.jsp");
-            } else {
-                SessionMessages.addErrorMessage("Cannot login, payload too big and OpenID version 2 not supported.");
-                return new ForwardResolution(getLoginPage());
-            }
-        } else {
-            return new RedirectResolution(destinationUrl, false);
-        }
-    }
+		// retrieve the previously stored discovery information
+		HttpSession session = request.getSession();
+		DiscoveryInformation discovered = (DiscoveryInformation) session.getAttribute(OPENID_DISCOVERED);
+		ConsumerManager manager = (ConsumerManager) session.getAttribute(OPENID_CONSUMER_MANAGER);
 
-    public Resolution handleOpenIDLogin() throws DiscoveryException, AssociationException, MessageException {
-        // extract the parameters from the authentication response
-        // (which comes in as a HTTP request from the OpenID provider)
-        HttpServletRequest request = context.getRequest();
-        ParameterList openidResp = new ParameterList(request.getParameterMap());
+		// extract the receiving URL from the HTTP request
+		StringBuffer receivingURL = request.getRequestURL();
+		String queryString = request.getQueryString();
+		if (queryString != null && queryString.length() > 0)
+			receivingURL.append("?").append(request.getQueryString());
 
-        // retrieve the previously stored discovery information
-        HttpSession session = request.getSession();
-        DiscoveryInformation discovered =
-            (DiscoveryInformation) session.getAttribute(OPENID_DISCOVERED);
-        ConsumerManager manager =
-                (ConsumerManager) session.getAttribute(OPENID_CONSUMER_MANAGER);
+		// verify the response
+		VerificationResult verification = manager.verify(receivingURL.toString(), openidResp, discovered);
 
-        // extract the receiving URL from the HTTP request
-        StringBuffer receivingURL = request.getRequestURL();
-        String queryString = request.getQueryString();
-        if (queryString != null && queryString.length() > 0)
-            receivingURL.append("?").append(request.getQueryString());
+		// examine the verification result and extract the verified identifier
+		Identifier identifier = verification.getVerifiedId();
+		Locale locale = context.getLocale();
 
-        // verify the response
-        VerificationResult verification = manager.verify(receivingURL.toString(), openidResp, discovered);
+		if (identifier != null) {
+			// success, use the verified identifier to identify the user
+			// OpenID authentication failed
+			Subject subject = SecurityUtils.getSubject();
+			try {
+				subject.login(new OpenIDToken(identifier, null));
+				String name = ShiroUtils.getPortofinoRealm().getUserPrettyName((Serializable) subject.getPrincipal());
+				logger.info("User {} login", identifier.getIdentifier());
+				String successMsg = MessageFormat.format(ElementsThreadLocals.getText("user._.logged.in.successfully"), name);
+				SessionMessages.addInfoMessage(successMsg);
+				if (StringUtils.isEmpty(returnUrl)) {
+					returnUrl = "/";
+				}
+				session.removeAttribute(OPENID_DISCOVERED);
+				session.removeAttribute(OPENID_CONSUMER_MANAGER);
+				return redirectToReturnUrl(returnUrl);
+			} catch (UnknownAccountException e) {
+				// The user is not present in the system
+				session.removeAttribute(OPENID_DISCOVERED);
+				session.removeAttribute(OPENID_CONSUMER_MANAGER);
+				session.setAttribute(OPENID_IDENTIFIER, identifier);
+				return handleUnknownAccount(e);
+			} catch (AuthenticationException e) {
+				String errMsg = MessageFormat.format(ElementsThreadLocals.getText("login.failed.for.user._"), identifier.getIdentifier());
+				SessionMessages.addErrorMessage(errMsg);
+				logger.warn(errMsg, e);
+				return new ForwardResolution(getLoginPage());
+			}
+		} else {
+			String errMsg = MessageFormat.format(ElementsThreadLocals.getText("login.failed.for.user._"), "(failed OpenId authentication)");
+			SessionMessages.addErrorMessage(errMsg);
+			return new ForwardResolution(getLoginPage());
+		}
+	}
 
-        // examine the verification result and extract the verified identifier
-        Identifier identifier = verification.getVerifiedId();
-        Locale locale = context.getLocale();
+	/**
+	 * Handles the case when a user has successfully completed their OpenID
+	 * login, but was rejected by Security.groovy with UnknownAccountException,
+	 * meaning that the user is not known to the application and cannot log in.
+	 * By default, the user is redirected to a sign-up page; however, you may
+	 * want to adopt a different behavior.
+	 * 
+	 * @param e
+	 *            the exception thrown by Security.groovy (which may contain
+	 *            additional information).
+	 * @return a Resolution that controls how the request should be handled.
+	 */
+	protected Resolution handleUnknownAccount(UnknownAccountException e) {
+		logger.debug("Unkown user logged in with OpenID", e);
+		return signUp();
+	}
 
-        if (identifier != null) {
-            // success, use the verified identifier to identify the user
-            // OpenID authentication failed
-            Subject subject = SecurityUtils.getSubject();
-            try {
-                subject.login(new OpenIDToken(identifier, null));
-                String name = ShiroUtils.getPortofinoRealm().getUserPrettyName((Serializable) subject.getPrincipal());
-                logger.info("User {} login", identifier.getIdentifier());
-                String successMsg = MessageFormat.format(
-                        ElementsThreadLocals.getText("user._.logged.in.successfully"), name);
-                SessionMessages.addInfoMessage(successMsg);
-                if (StringUtils.isEmpty(returnUrl)) {
-                    returnUrl = "/";
-                }
-                session.removeAttribute(OPENID_DISCOVERED);
-                session.removeAttribute(OPENID_CONSUMER_MANAGER);
-                return redirectToReturnUrl(returnUrl);
-            } catch (UnknownAccountException e) {
-                //The user is not present in the system
-                session.removeAttribute(OPENID_DISCOVERED);
-                session.removeAttribute(OPENID_CONSUMER_MANAGER);
-                session.setAttribute(OPENID_IDENTIFIER, identifier);
-                return handleUnknownAccount(e);
-            } catch (AuthenticationException e) {
-                String errMsg = MessageFormat.format(
-                        ElementsThreadLocals.getText("login.failed.for.user._"), identifier.getIdentifier());
-                SessionMessages.addErrorMessage(errMsg);
-                logger.warn(errMsg, e);
-                return new ForwardResolution(getLoginPage());
-            }
-        } else {
-            String errMsg = MessageFormat.format(
-                    ElementsThreadLocals.getText("login.failed.for.user._"), "(failed OpenId authentication)");
-            SessionMessages.addErrorMessage(errMsg);
-            return new ForwardResolution(getLoginPage());
-        }
-    }
+	public Resolution signUp2() {
+		Subject subject = SecurityUtils.getSubject();
+		if (subject.getPrincipal() != null) {
+			logger.debug("Already logged in");
+			return redirectToReturnUrl();
+		}
 
-    /**
-     * Handles the case when a user has successfully completed their OpenID login, but was rejected by Security.groovy
-     * with UnknownAccountException, meaning that the user is not known to the application and cannot log in. By default,
-     * the user is redirected to a sign-up page; however, you may want to adopt a different behavior.
-     * @param e the exception thrown by Security.groovy (which may contain additional information).
-     * @return a Resolution that controls how the request should be handled.
-     */
-    protected Resolution handleUnknownAccount(UnknownAccountException e) {
-        logger.debug("Unkown user logged in with OpenID", e);
-        return signUp();
-    }
+		PortofinoRealm portofinoRealm = ShiroUtils.getPortofinoRealm();
+		setupSignUpForm(portofinoRealm);
+		signUpForm.readFromRequest(context.getRequest());
+		if (signUpForm.validate() && validateCaptcha()) {
+			try {
+				Object user = portofinoRealm.getSelfRegisteredUserClassAccessor().newInstance();
+				signUpForm.writeToObject(user);
+				String token = portofinoRealm.saveSelfRegisteredUser(user);
+				HttpSession session = context.getRequest().getSession();
+				Identifier identifier = (Identifier) session.getAttribute(OPENID_IDENTIFIER);
 
-    public Resolution signUp2() {
-        Subject subject = SecurityUtils.getSubject();
-        if (subject.getPrincipal() != null) {
-            logger.debug("Already logged in");
-            return redirectToReturnUrl();
-        }
+				OpenIDToken openIDToken = new OpenIDToken(identifier, token);
+				subject.login(openIDToken);
+				session.removeAttribute(OPENID_IDENTIFIER);
+				return redirectToReturnUrl();
+			} catch (Exception e) {
+				logger.error("Error during sign-up", e);
+				SessionMessages.addErrorMessage("Sign-up failed.");
+				return getSignUpView();
+			}
+		} else {
+			SessionMessages.addErrorMessage("Correct the errors before proceding");
+			return getSignUpView();
+		}
+	}
 
-        PortofinoRealm portofinoRealm = ShiroUtils.getPortofinoRealm();
-        setupSignUpForm(portofinoRealm);
-        signUpForm.readFromRequest(context.getRequest());
-        if (signUpForm.validate() && validateCaptcha()) {
-            try {
-                Object user = portofinoRealm.getSelfRegisteredUserClassAccessor().newInstance();
-                signUpForm.writeToObject(user);
-                String token = portofinoRealm.saveSelfRegisteredUser(user);
-                HttpSession session = context.getRequest().getSession();
-                Identifier identifier = (Identifier) session.getAttribute(OPENID_IDENTIFIER);
+	public String getOpenIdUrl() {
+		return openIdUrl;
+	}
 
-                OpenIDToken openIDToken = new OpenIDToken(identifier, token);
-                subject.login(openIDToken);
-                session.removeAttribute(OPENID_IDENTIFIER);
-                return redirectToReturnUrl();
-            } catch (Exception e) {
-                logger.error("Error during sign-up", e);
-                SessionMessages.addErrorMessage("Sign-up failed.");
-                return getSignUpView();
-            }
-        } else {
-            SessionMessages.addErrorMessage("Correct the errors before proceding");
-            return getSignUpView();
-        }
-    }
+	public void setOpenIdUrl(String openIdUrl) {
+		this.openIdUrl = openIdUrl;
+	}
 
-    public String getOpenIdUrl() {
-        return openIdUrl;
-    }
+	public String getOpenIdDestinationUrl() {
+		return openIdDestinationUrl;
+	}
 
-    public void setOpenIdUrl(String openIdUrl) {
-        this.openIdUrl = openIdUrl;
-    }
+	public Map getOpenIdParameterMap() {
+		return openIdParameterMap;
+	}
 
-    public String getOpenIdDestinationUrl() {
-        return openIdDestinationUrl;
-    }
+	// For openID selector
+	public void setOpenid_identifier(String openIdUrl) {
+		this.openIdUrl = openIdUrl;
+	}
 
-    public Map getOpenIdParameterMap() {
-        return openIdParameterMap;
-    }
+	@Override
+	public PageInstance getPageInstance() {
+		return pageInstance;
+	}
 
-    //For openID selector
-    public void setOpenid_identifier(String openIdUrl) {
-        this.openIdUrl = openIdUrl;
-    }
-
-    @Override
-    public PageInstance getPageInstance() {
-        return pageInstance;
-    }
-
-    @Override
-    public void setPageInstance(PageInstance pageInstance) {
-        this.pageInstance = pageInstance;
-    }
-
+	@Override
+	public void setPageInstance(PageInstance pageInstance) {
+		this.pageInstance = pageInstance;
+	}
 }

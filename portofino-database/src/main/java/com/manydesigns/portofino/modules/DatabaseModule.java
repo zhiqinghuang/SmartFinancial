@@ -1,23 +1,3 @@
-/*
- * Copyright (C) 2005-2015 ManyDesigns srl.  All rights reserved.
- * http://www.manydesigns.com/
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 3 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
- */
-
 package com.manydesigns.portofino.modules;
 
 import com.manydesigns.portofino.database.platforms.DatabasePlatformsRegistry;
@@ -31,115 +11,91 @@ import org.slf4j.LoggerFactory;
 import javax.servlet.ServletContext;
 import java.io.File;
 
-/*
-* @author Paolo Predonzani     - paolo.predonzani@manydesigns.com
-* @author Angelo Lupo          - angelo.lupo@manydesigns.com
-* @author Giampiero Granatella - giampiero.granatella@manydesigns.com
-* @author Alessio Stalla       - alessio.stalla@manydesigns.com
-*/
 public class DatabaseModule implements Module {
-    public static final String copyright =
-            "Copyright (c) 2005-2015, ManyDesigns srl";
+	@Inject(BaseModule.SERVLET_CONTEXT)
+	public ServletContext servletContext;
 
-    //**************************************************************************
-    // Fields
-    //**************************************************************************
+	@Inject(BaseModule.PORTOFINO_CONFIGURATION)
+	public Configuration configuration;
 
-    @Inject(BaseModule.SERVLET_CONTEXT)
-    public ServletContext servletContext;
+	@Inject(BaseModule.APPLICATION_DIRECTORY)
+	public File applicationDirectory;
 
-    @Inject(BaseModule.PORTOFINO_CONFIGURATION)
-    public Configuration configuration;
+	protected Persistence persistence;
 
-    @Inject(BaseModule.APPLICATION_DIRECTORY)
-    public File applicationDirectory;
+	protected ModuleStatus status = ModuleStatus.CREATED;
 
-    protected Persistence persistence;
+	public static final String PERSISTENCE = "com.manydesigns.portofino.modules.DatabaseModule.persistence";
+	public static final String DATABASE_PLATFORMS_REGISTRY = "com.manydesigns.portofino.modules.DatabaseModule.databasePlatformsRegistry";
+	// Liquibase properties
+	public static final String LIQUIBASE_ENABLED = "liquibase.enabled";
 
-    protected ModuleStatus status = ModuleStatus.CREATED;
+	public static final Logger logger = LoggerFactory.getLogger(DatabaseModule.class);
 
-    //**************************************************************************
-    // Constants
-    //**************************************************************************
+	@Override
+	public String getModuleVersion() {
+		return ModuleRegistry.getPortofinoVersion();
+	}
 
-    public static final String PERSISTENCE =
-            "com.manydesigns.portofino.modules.DatabaseModule.persistence";
-    public static final String DATABASE_PLATFORMS_REGISTRY =
-            "com.manydesigns.portofino.modules.DatabaseModule.databasePlatformsRegistry";
-    //Liquibase properties
-    public static final String LIQUIBASE_ENABLED = "liquibase.enabled";
+	@Override
+	public int getMigrationVersion() {
+		return 1;
+	}
 
-    //**************************************************************************
-    // Logging
-    //**************************************************************************
+	@Override
+	public double getPriority() {
+		return 10;
+	}
 
-    public static final Logger logger =
-            LoggerFactory.getLogger(DatabaseModule.class);
+	@Override
+	public String getId() {
+		return "database";
+	}
 
-    @Override
-    public String getModuleVersion() {
-        return ModuleRegistry.getPortofinoVersion();
-    }
+	@Override
+	public String getName() {
+		return "Database";
+	}
 
-    @Override
-    public int getMigrationVersion() {
-        return 1;
-    }
+	@Override
+	public int install() {
+		return 1;
+	}
 
-    @Override
-    public double getPriority() {
-        return 10;
-    }
+	@Override
+	public void init() {
+		logger.info("Initializing persistence");
+		DatabasePlatformsRegistry databasePlatformsRegistry = new DatabasePlatformsRegistry(configuration);
 
-    @Override
-    public String getId() {
-        return "database";
-    }
+		persistence = new Persistence(applicationDirectory, configuration, databasePlatformsRegistry);
+		Injections.inject(persistence, servletContext, null);
+		servletContext.setAttribute(DATABASE_PLATFORMS_REGISTRY, databasePlatformsRegistry);
+		servletContext.setAttribute(PERSISTENCE, persistence);
 
-    @Override
-    public String getName() {
-        return "Database";
-    }
+		status = ModuleStatus.ACTIVE;
+	}
 
-    @Override
-    public int install() {
-        return 1;
-    }
+	@Override
+	public void start() {
+		persistence.loadXmlModel();
+		status = ModuleStatus.STARTED;
+	}
 
-    @Override
-    public void init() {
-        logger.info("Initializing persistence");
-        DatabasePlatformsRegistry databasePlatformsRegistry = new DatabasePlatformsRegistry(configuration);
+	@Override
+	public void stop() {
+		persistence.shutdown();
+		status = ModuleStatus.STOPPED;
+	}
 
-        persistence = new Persistence(applicationDirectory, configuration, databasePlatformsRegistry);
-        Injections.inject(persistence, servletContext, null);
-        servletContext.setAttribute(DATABASE_PLATFORMS_REGISTRY, databasePlatformsRegistry);
-        servletContext.setAttribute(PERSISTENCE, persistence);
+	@Override
+	public void destroy() {
+		logger.info("ManyDesigns Portofino database module stopping...");
+		logger.info("ManyDesigns Portofino database module stopped.");
+		status = ModuleStatus.DESTROYED;
+	}
 
-        status = ModuleStatus.ACTIVE;
-    }
-
-    @Override
-    public void start() {
-        persistence.loadXmlModel();
-        status = ModuleStatus.STARTED;
-    }
-
-    @Override
-    public void stop() {
-        persistence.shutdown();
-        status = ModuleStatus.STOPPED;
-    }
-
-    @Override
-    public void destroy() {
-        logger.info("ManyDesigns Portofino database module stopping...");
-        logger.info("ManyDesigns Portofino database module stopped.");
-        status = ModuleStatus.DESTROYED;
-    }
-
-    @Override
-    public ModuleStatus getStatus() {
-        return status;
-    }
+	@Override
+	public ModuleStatus getStatus() {
+		return status;
+	}
 }

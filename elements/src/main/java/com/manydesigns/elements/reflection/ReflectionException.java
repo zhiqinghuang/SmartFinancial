@@ -1,7 +1,8 @@
 package com.manydesigns.elements.reflection;
 
 public class ReflectionException extends RuntimeException {
-	public static final String copyright = "Copyright (c) 2005-2015, ManyDesigns srl";
+
+	private static final long serialVersionUID = -1710345914935142860L;
 
 	public ReflectionException() {
 	}

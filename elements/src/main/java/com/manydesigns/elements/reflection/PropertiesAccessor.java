@@ -5,9 +5,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Properties;
 
-@SuppressWarnings({ "UnusedDeclaration" })
 public class PropertiesAccessor implements ClassAccessor {
-	public static final String copyright = "Copyright (c) 2005-2015, ManyDesigns srl";
 
 	protected final PropertiesEntryAccessor[] accessors;
 

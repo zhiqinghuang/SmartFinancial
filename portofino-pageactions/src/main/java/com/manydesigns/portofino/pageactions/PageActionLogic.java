@@ -13,7 +13,6 @@ import org.slf4j.LoggerFactory;
 import java.io.InputStream;
 
 public class PageActionLogic {
-	public static final String copyright = "Copyright (c) 2005-2015, ManyDesigns srl";
 
 	public static final Logger logger = LoggerFactory.getLogger(PageActionLogic.class);
 

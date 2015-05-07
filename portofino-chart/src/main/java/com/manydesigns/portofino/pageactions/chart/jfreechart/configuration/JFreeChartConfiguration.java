@@ -1,23 +1,3 @@
-/*
- * Copyright (C) 2005-2015 ManyDesigns srl.  All rights reserved.
- * http://www.manydesigns.com/
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 3 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
- */
-
 package com.manydesigns.portofino.pageactions.chart.jfreechart.configuration;
 
 import com.manydesigns.elements.annotations.*;
@@ -37,225 +17,178 @@ import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlRootElement;
 
-/*
-* @author Paolo Predonzani     - paolo.predonzani@manydesigns.com
-* @author Angelo Lupo          - angelo.lupo@manydesigns.com
-* @author Giampiero Granatella - giampiero.granatella@manydesigns.com
-* @author Alessio Stalla       - alessio.stalla@manydesigns.com
-*/
 @XmlRootElement(name = "configuration")
 @XmlAccessorType(XmlAccessType.NONE)
 public class JFreeChartConfiguration implements PageActionConfiguration, ChartDefinition {
-    public static final String copyright =
-            "Copyright (c) 2005-2015, ManyDesigns srl";
+	protected String name;
+	protected String type;
+	protected String legend;
+	protected String database;
+	protected String query;
+	protected String urlExpression;
+	protected String xAxisName;
+	protected String yAxisName;
+	protected String orientation;
 
-    //**************************************************************************
-    // Fields
-    //**************************************************************************
+	protected Database actualDatabase;
+	protected Type actualType;
+	protected Class<? extends ChartGenerator> generatorClass;
+	protected Orientation actualOrientation;
 
-    protected String name;
-    protected String type;
-    protected String legend;
-    protected String database;
-    protected String query;
-    protected String urlExpression;
-    protected String xAxisName;
-    protected String yAxisName;
-    protected String orientation;
+	@Inject(DatabaseModule.PERSISTENCE)
+	public Persistence persistence;
 
-    //**************************************************************************
-    // Fields for wire-up
-    //**************************************************************************
+	public static enum Type {
+		AREA(ChartAreaGenerator.class), BAR(ChartBarGenerator.class), BAR3D(ChartBar3DGenerator.class), LINE(ChartLineGenerator.class), LINE3D(ChartLine3DGenerator.class), PIE(ChartPieGenerator.class), PIE3D(ChartPie3DGenerator.class), RING(ChartRingGenerator.class), STACKED_BAR(ChartStackedBarGenerator.class), STACKED_BAR_3D(ChartStackedBar3DGenerator.class);
 
-    protected Database actualDatabase;
-    protected Type actualType;
-    protected Class<? extends ChartGenerator> generatorClass;
-    protected Orientation actualOrientation;
+		private Class<? extends ChartGenerator> generatorClass;
 
-    @Inject(DatabaseModule.PERSISTENCE)
-    public Persistence persistence;
+		Type(Class<? extends ChartGenerator> generatorClass) {
+			this.generatorClass = generatorClass;
+		}
 
-    //**************************************************************************
-    // Built-in chart generators
-    //**************************************************************************
+		public Class<? extends ChartGenerator> getGeneratorClass() {
+			return generatorClass;
+		}
+	}
 
-    public static enum Type {
-        AREA(ChartAreaGenerator.class),
-        BAR(ChartBarGenerator.class),
-        BAR3D(ChartBar3DGenerator.class),
-        LINE(ChartLineGenerator.class),
-        LINE3D(ChartLine3DGenerator.class),
-        PIE(ChartPieGenerator.class),
-        PIE3D(ChartPie3DGenerator.class),
-        RING(ChartRingGenerator.class),
-        STACKED_BAR(ChartStackedBarGenerator.class),
-        STACKED_BAR_3D(ChartStackedBar3DGenerator.class);
+	public static final Logger logger = LoggerFactory.getLogger(JFreeChartConfiguration.class);
 
-        private Class<? extends ChartGenerator> generatorClass;
+	public JFreeChartConfiguration() {
+		super();
+	}
 
-        Type(Class<? extends ChartGenerator> generatorClass) {
-            this.generatorClass = generatorClass;
-        }
+	public void init() {
+		assert name != null;
+		assert type != null;
+		assert legend != null;
+		assert database != null;
+		assert query != null;
 
-        public Class<? extends ChartGenerator> getGeneratorClass() {
-            return generatorClass;
-        }
-    }
+		try {
+			actualType = Type.valueOf(type);
+			generatorClass = actualType.getGeneratorClass();
+		} catch (Exception e) {
+			logger.error("Invalid chart type: " + type, e);
+		}
 
-    //**************************************************************************
-    // Logging
-    //**************************************************************************
+		if (orientation != null) {
+			try {
+				actualOrientation = Orientation.valueOf(orientation);
+			} catch (Exception e) {
+				logger.error("Invalid orientation: " + actualOrientation, e);
+			}
+		}
+		actualDatabase = DatabaseLogic.findDatabaseByName(persistence.getModel(), database);
+	}
 
-    public static final Logger logger =
-            LoggerFactory.getLogger(JFreeChartConfiguration.class);
+	@Required
+	@XmlAttribute(required = true)
+	public String getName() {
+		return name;
+	}
 
-    //**************************************************************************
-    // Constructors
-    //**************************************************************************
+	public void setName(String name) {
+		this.name = name;
+	}
 
+	@XmlAttribute(name = "type", required = true)
+	@Required
+	@Label("Type")
+	public String getType() {
+		return type;
+	}
 
-    public JFreeChartConfiguration() {
-        super();
-    }
+	public void setType(String type) {
+		this.type = type;
+	}
 
-    //**************************************************************************
-    // Configuration implementation
-    //**************************************************************************
+	public Type getActualType() {
+		return actualType;
+	}
 
-    public void init() {
-        assert name != null;
-        assert type != null;
-        assert legend != null;
-        assert database != null;
-        assert query != null;
+	@Required
+	@XmlAttribute(required = true)
+	public String getLegend() {
+		return legend;
+	}
 
-        try {
-            actualType = Type.valueOf(type);
-            generatorClass = actualType.getGeneratorClass();
-        } catch (Exception e) {
-            logger.error("Invalid chart type: " + type, e);
-        }
+	public void setLegend(String legend) {
+		this.legend = legend;
+	}
 
-        if(orientation != null) {
-            try {
-                actualOrientation = Orientation.valueOf(orientation);
-            } catch (Exception e) {
-                logger.error("Invalid orientation: " + actualOrientation, e);
-            }
-        }
-        actualDatabase = DatabaseLogic.findDatabaseByName(persistence.getModel(), database);
-    }
+	@Required
+	@XmlAttribute(required = true)
+	public String getDatabase() {
+		return database;
+	}
 
-    //**************************************************************************
-    // Getters/setters
-    //**************************************************************************
-    @Required
-    @XmlAttribute(required = true)
-    public String getName() {
-        return name;
-    }
+	public void setDatabase(String database) {
+		this.database = database;
+	}
 
-    public void setName(String name) {
-        this.name = name;
-    }
+	@Required
+	@Label("SQL Query")
+	@Multiline
+	@XmlAttribute(required = true)
+	@CssClass(BootstrapSizes.FILL_ROW)
+	public String getQuery() {
+		return query;
+	}
 
-    @XmlAttribute(name = "type", required = true)
-    @Required
-    @Label("Type")
-    public String getType() {
-        return type;
-    }
+	public void setQuery(String query) {
+		this.query = query;
+	}
 
-    public void setType(String type) {
-        this.type = type;
-    }
+	@Label("URL expression")
+	@XmlAttribute(required = true)
+	public String getUrlExpression() {
+		return urlExpression;
+	}
 
-    public Type getActualType() {
-        return actualType;
-    }
+	public void setUrlExpression(String urlExpression) {
+		this.urlExpression = urlExpression;
+	}
 
-    @Required
-    @XmlAttribute(required = true)
-    public String getLegend() {
-        return legend;
-    }
+	public Database getActualDatabase() {
+		return actualDatabase;
+	}
 
-    public void setLegend(String legend) {
-        this.legend = legend;
-    }
+	public Class<? extends ChartGenerator> getGeneratorClass() {
+		return generatorClass;
+	}
 
-    @Required
-    @XmlAttribute(required = true)
-    public String getDatabase() {
-        return database;
-    }
+	@XmlAttribute(name = "xAxisName")
+	public String getXAxisName() {
+		return xAxisName;
+	}
 
-    public void setDatabase(String database) {
-        this.database = database;
-    }
+	public void setXAxisName(String xAxisName) {
+		this.xAxisName = xAxisName;
+	}
 
-    @Required
-    @Label("SQL Query")
-    @Multiline
-    @XmlAttribute(required = true)
-    @CssClass(BootstrapSizes.FILL_ROW)
-    public String getQuery() {
-        return query;
-    }
+	@XmlAttribute(name = "yAxisName")
+	public String getYAxisName() {
+		return yAxisName;
+	}
 
-    public void setQuery(String query) {
-        this.query = query;
-    }
+	public void setYAxisName(String yAxisName) {
+		this.yAxisName = yAxisName;
+	}
 
-    @Label("URL expression")
-    @XmlAttribute(required = true)
-    public String getUrlExpression() {
-        return urlExpression;
-    }
+	@XmlAttribute(name = "orientation")
+	@Label("Orientation")
+	@Required
+	@Select(nullOption = false)
+	public String getOrientation() {
+		return orientation;
+	}
 
-    public void setUrlExpression(String urlExpression) {
-        this.urlExpression = urlExpression;
-    }
+	public void setOrientation(String orientation) {
+		this.orientation = orientation;
+	}
 
-    public Database getActualDatabase() {
-        return actualDatabase;
-    }
-
-    public Class<? extends ChartGenerator> getGeneratorClass() {
-        return generatorClass;
-    }
-
-    @XmlAttribute(name = "xAxisName")
-    public String getXAxisName() {
-        return xAxisName;
-    }
-
-    public void setXAxisName(String xAxisName) {
-        this.xAxisName = xAxisName;
-    }
-
-    @XmlAttribute(name = "yAxisName")
-    public String getYAxisName() {
-        return yAxisName;
-    }
-
-    public void setYAxisName(String yAxisName) {
-        this.yAxisName = yAxisName;
-    }
-
-    @XmlAttribute(name = "orientation")
-    @Label("Orientation")
-    @Required
-    @Select(nullOption = false)
-    public String getOrientation() {
-        return orientation;
-    }
-
-    public void setOrientation(String orientation) {
-        this.orientation = orientation;
-    }
-
-    public Orientation getActualOrientation() {
-        return actualOrientation;
-    }
+	public Orientation getActualOrientation() {
+		return actualOrientation;
+	}
 }

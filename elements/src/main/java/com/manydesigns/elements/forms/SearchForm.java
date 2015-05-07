@@ -8,7 +8,8 @@ import com.manydesigns.elements.xml.XhtmlBuffer;
 import org.jetbrains.annotations.NotNull;
 
 public class SearchForm extends AbstractCompositeElement<SearchField> {
-	public static final String copyright = "Copyright (c) 2005-2015, ManyDesigns srl";
+
+	private static final long serialVersionUID = -9006695128068128774L;
 
 	public void toXhtml(@NotNull XhtmlBuffer xb) {
 		xb.openElement("div");

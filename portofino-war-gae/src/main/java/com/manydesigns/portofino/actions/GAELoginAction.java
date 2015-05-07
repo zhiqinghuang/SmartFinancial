@@ -19,9 +19,6 @@ import java.io.Serializable;
 
 @UrlBinding("/actions/user/login.gae")
 public class GAELoginAction extends AbstractActionBean {
-    public static final String copyright =
-            "Copyright (c) 2005-2015, ManyDesigns srl";
-
     public static final Logger logger = LoggerFactory.getLogger(GAELoginAction.class);
 
     protected String returnUrl;

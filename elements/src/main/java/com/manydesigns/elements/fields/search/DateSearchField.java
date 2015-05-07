@@ -15,7 +15,6 @@ import javax.servlet.http.HttpServletRequest;
 import java.text.MessageFormat;
 
 public class DateSearchField extends RangeSearchField {
-	public static final String copyright = "Copyright (c) 2005-2015, ManyDesigns srl";
 
 	protected String datePattern;
 	protected DateTimeFormatter dateTimeFormatter;

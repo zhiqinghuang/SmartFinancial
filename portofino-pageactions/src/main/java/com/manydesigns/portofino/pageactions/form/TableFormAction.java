@@ -27,7 +27,6 @@ import java.util.List;
 @ScriptTemplate("table_form_template.groovy")
 @SupportsPermissions(TableFormAction.POST_FORM_PERMISSION)
 public abstract class TableFormAction extends AbstractPageAction {
-	public static final String copyright = "Copyright (c) 2005-2015, ManyDesigns srl";
 
 	public static final Logger logger = LoggerFactory.getLogger(TableFormAction.class);
 	public static final String POST_FORM_PERMISSION = "post-form";

@@ -12,8 +12,6 @@ import org.jetbrains.annotations.NotNull;
 import javax.servlet.http.HttpServletRequest;
 
 public class PasswordField extends TextField {
-	public static final String copyright = "Copyright (c) 2005-2015, ManyDesigns srl";
-
 	public final static String PASSWORD_PLACEHOLDER = "********";
 
 	private String confirmationValue;

@@ -1,23 +1,3 @@
-/*
- * Copyright (C) 2005-2015 ManyDesigns srl.  All rights reserved.
- * http://www.manydesigns.com/
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 3 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
- */
-
 package com.manydesigns.portofino.model.database;
 
 import com.manydesigns.elements.annotations.Required;
@@ -33,180 +13,135 @@ import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
 
-/*
-* @author Paolo Predonzani     - paolo.predonzani@manydesigns.com
-* @author Angelo Lupo          - angelo.lupo@manydesigns.com
-* @author Giampiero Granatella - giampiero.granatella@manydesigns.com
-* @author Alessio Stalla       - alessio.stalla@manydesigns.com
-*/
-
 @XmlAccessorType(value = XmlAccessType.NONE)
 public class PrimaryKey implements ModelObject {
-    public static final String copyright =
-            "Copyright (c) 2005-2015, ManyDesigns srl";
+	protected final List<PrimaryKeyColumn> primaryKeyColumns;
 
-    //**************************************************************************
-    // Fields
-    //**************************************************************************
+	protected Table table;
+	protected String primaryKeyName;
 
-    protected final List<PrimaryKeyColumn> primaryKeyColumns;
+	protected final List<Column> columns;
+	protected boolean valid;
 
-    protected Table table;
-    protected String primaryKeyName;
+	public static final Logger logger = LoggerFactory.getLogger(Table.class);
 
-    //**************************************************************************
-    // Fields for wire-up
-    //**************************************************************************
+	public PrimaryKey() {
+		columns = new ArrayList<Column>();
+		primaryKeyColumns = new ArrayList<PrimaryKeyColumn>();
+	}
 
-    protected final List<Column> columns;
-    protected boolean valid;
+	public PrimaryKey(Table table) {
+		this();
+		this.table = table;
+	}
 
-    public static final Logger logger = LoggerFactory.getLogger(Table.class);
+	public String getQualifiedName() {
+		return MessageFormat.format("{0}#{1}", table.getQualifiedName(), primaryKeyName);
+	}
 
-    //**************************************************************************
-    // Constructors and wire up
-    //**************************************************************************
+	public void afterUnmarshal(Unmarshaller u, Object parent) {
+		table = (Table) parent;
+	}
 
-    public PrimaryKey() {
-        columns = new ArrayList<Column>();
-        primaryKeyColumns = new ArrayList<PrimaryKeyColumn>();
-    }
+	public void reset() {
+		columns.clear();
+		valid = true;
+	}
 
-    public PrimaryKey(Table table) {
-        this();
-        this.table = table;
-    }
+	public void init(Model model) {
+		assert table != null;
 
-    //**************************************************************************
-    // ModelObject implementation
-    //**************************************************************************
+		if (primaryKeyColumns.isEmpty()) {
+			throw new Error(MessageFormat.format("Primary key {0} has no columns", getQualifiedName()));
+		}
 
-    public String getQualifiedName() {
-        return MessageFormat.format("{0}#{1}",
-                table.getQualifiedName(), primaryKeyName);
-    }
+	}
 
-    public void afterUnmarshal(Unmarshaller u, Object parent) {
-        table = (Table) parent;
-    }
+	public void link(Model model) {
+		for (PrimaryKeyColumn pkc : primaryKeyColumns) {
+			Column column = pkc.getActualColumn();
+			if (column == null) {
+				valid = false;
+				logger.error("Invalid primary key column: {}-{}", getQualifiedName(), pkc.getColumnName());
+			} else {
+				columns.add(column);
+			}
+		}
 
-    public void reset() {
-        columns.clear();
-        valid = true;
-    }
+		if (columns.isEmpty()) {
+			logger.warn("Primary key '{}' has no columns", this);
+		}
+	}
 
-    public void init(Model model) {
-        assert table != null;
+	public void visitChildren(ModelObjectVisitor visitor) {
+		for (PrimaryKeyColumn pkc : primaryKeyColumns) {
+			visitor.visit(pkc);
+		}
+	}
 
-// Liquibase on MySQL returns null primaryKey name if the name is "PRIMARY"
-//        assert primaryKeyName != null;
+	public PrimaryKeyColumn findPrimaryKeyColumnByNameIgnoreCase(String columnName) {
+		for (PrimaryKeyColumn primaryKeyColumn : primaryKeyColumns) {
+			if (primaryKeyColumn.getColumnName().equalsIgnoreCase(columnName)) {
+				return primaryKeyColumn;
+			}
+		}
+		return null;
+	}
 
-        if (primaryKeyColumns.isEmpty()) {
-            throw new Error(MessageFormat.format(
-                    "Primary key {0} has no columns",
-                    getQualifiedName()));
-        }
+	public PrimaryKeyColumn findPrimaryKeyColumnByName(String columnName) {
+		for (PrimaryKeyColumn primaryKeyColumn : primaryKeyColumns) {
+			if (primaryKeyColumn.getColumnName().equals(columnName)) {
+				return primaryKeyColumn;
+			}
+		}
+		return null;
+	}
 
-    }
+	public Table getTable() {
+		return table;
+	}
 
-    public void link(Model model) {
-        for (PrimaryKeyColumn pkc : primaryKeyColumns) {
-            Column column = pkc.getActualColumn();
-            if (column == null) {
-                valid = false;
-                logger.error("Invalid primary key column: {}-{}",
-                        getQualifiedName(), pkc.getColumnName());
-            } else {
-                columns.add(column);
-            }
-        }
+	public void setTable(Table table) {
+		this.table = table;
+	}
 
-        if (columns.isEmpty()) {
-            logger.warn("Primary key '{}' has no columns", this);
-        }
-    }
+	public List<Column> getColumns() {
+		return columns;
+	}
 
-    public void visitChildren(ModelObjectVisitor visitor) {
-        for (PrimaryKeyColumn pkc : primaryKeyColumns) {
-            visitor.visit(pkc);
-        }
-    }
+	public String getDatabaseName() {
+		return table.getTableName();
+	}
 
-    //**************************************************************************
-    // Find methods
-    //**************************************************************************
+	public String getSchemaName() {
+		return table.getSchemaName();
+	}
 
-    public PrimaryKeyColumn findPrimaryKeyColumnByNameIgnoreCase(String columnName) {
-        for (PrimaryKeyColumn primaryKeyColumn : primaryKeyColumns) {
-            if (primaryKeyColumn.getColumnName().equalsIgnoreCase(columnName)) {
-                return primaryKeyColumn;
-            }
-        }
-        return null;
-    }
+	public String getTableName() {
+		return table.getTableName();
+	}
 
-    public PrimaryKeyColumn findPrimaryKeyColumnByName(String columnName) {
-        for (PrimaryKeyColumn primaryKeyColumn : primaryKeyColumns) {
-            if (primaryKeyColumn.getColumnName().equals(columnName)) {
-                return primaryKeyColumn;
-            }
-        }
-        return null;
-    }
+	@Required
+	@XmlAttribute(required = true)
+	public String getPrimaryKeyName() {
+		return primaryKeyName;
+	}
 
-    //**************************************************************************
-    // Getters/setter
-    //**************************************************************************
+	public void setPrimaryKeyName(String primaryKeyName) {
+		this.primaryKeyName = primaryKeyName;
+	}
 
-    public Table getTable() {
-        return table;
-    }
+	@XmlElement(name = "column", type = PrimaryKeyColumn.class)
+	public List<PrimaryKeyColumn> getPrimaryKeyColumns() {
+		return primaryKeyColumns;
+	}
 
-    public void setTable(Table table) {
-        this.table = table;
-    }
+	public boolean isValid() {
+		return valid;
+	}
 
-    public List<Column> getColumns() {
-        return columns;
-    }
-
-    public String getDatabaseName() {
-        return table.getTableName();
-    }
-
-    public String getSchemaName() {
-        return table.getSchemaName();
-    }
-
-    public String getTableName() {
-        return table.getTableName();
-    }
-
-    @Required
-    @XmlAttribute(required = true)
-    public String getPrimaryKeyName() {
-        return primaryKeyName;
-    }
-
-    public void setPrimaryKeyName(String primaryKeyName) {
-        this.primaryKeyName = primaryKeyName;
-    }
-
-    @XmlElement(name="column",type=PrimaryKeyColumn.class)
-    public List<PrimaryKeyColumn> getPrimaryKeyColumns() {
-        return primaryKeyColumns;
-    }
-
-    public boolean isValid() {
-        return valid;
-    }
-
-    //**************************************************************************
-    // toString() override
-    //**************************************************************************
-
-    @Override
-    public String toString() {
-        return MessageFormat.format("primary key {0}", getQualifiedName());
-    }
+	@Override
+	public String toString() {
+		return MessageFormat.format("primary key {0}", getQualifiedName());
+	}
 }

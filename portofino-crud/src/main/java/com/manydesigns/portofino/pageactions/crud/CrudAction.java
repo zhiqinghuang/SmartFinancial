@@ -1,23 +1,3 @@
-/*
- * Copyright (C) 2005-2015 ManyDesigns srl.  All rights reserved.
- * http://www.manydesigns.com/
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 3 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
- */
-
 package com.manydesigns.portofino.pageactions.crud;
 
 import com.manydesigns.elements.ElementsThreadLocals;
@@ -67,14 +47,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * Default AbstractCrudAction implementation. Implements a crud page over a database table, based on a HQL query.
- *
- * @author Paolo Predonzani     - paolo.predonzani@manydesigns.com
- * @author Angelo Lupo          - angelo.lupo@manydesigns.com
- * @author Giampiero Granatella - giampiero.granatella@manydesigns.com
- * @author Alessio Stalla       - alessio.stalla@manydesigns.com
- */
 @SupportsPermissions({ CrudAction.PERMISSION_CREATE, CrudAction.PERMISSION_EDIT, CrudAction.PERMISSION_DELETE })
 @RequiresPermissions(level = AccessLevel.VIEW)
 @ScriptTemplate("script_template.groovy")
@@ -82,223 +54,174 @@ import java.util.List;
 @SupportsDetail
 @PageActionName("Crud")
 public class CrudAction extends AbstractCrudAction<Object> {
-    public static final String copyright =
-            "Copyright (c) 2005-2015, ManyDesigns srl";
 
-    public static final String[][] CRUD_CONFIGURATION_FIELDS =
-                {{"name", "database", "query", "searchTitle", "createTitle", "readTitle", "editTitle", "variable",
-                  "largeResultSet", "rowsPerPage"}};
+	public static final String[][] CRUD_CONFIGURATION_FIELDS = { { "name", "database", "query", "searchTitle", "createTitle", "readTitle", "editTitle", "variable", "largeResultSet", "rowsPerPage" } };
 
-    public Table baseTable;
+	public Table baseTable;
 
-    //--------------------------------------------------------------------------
-    // Data objects
-    //--------------------------------------------------------------------------
+	public Session session;
 
-    public Session session;
+	@Inject(DatabaseModule.PERSISTENCE)
+	public Persistence persistence;
 
-    @Inject(DatabaseModule.PERSISTENCE)
-    public Persistence persistence;
+	public static final Logger logger = LoggerFactory.getLogger(CrudAction.class);
 
-    //**************************************************************************
-    // Logging
-    //**************************************************************************
+	@Override
+	public long getTotalSearchRecords() {
+		// calculate totalRecords
+		TableCriteria criteria = new TableCriteria(baseTable);
+		if (searchForm != null) {
+			searchForm.configureCriteria(criteria);
+		}
+		QueryStringWithParameters query = QueryUtils.mergeQuery(crudConfiguration.getQuery(), criteria, this);
 
-    public static final Logger logger =
-            LoggerFactory.getLogger(CrudAction.class);
+		String queryString = query.getQueryString();
+		String totalRecordsQueryString;
+		try {
+			totalRecordsQueryString = generateCountQuery(queryString);
+		} catch (JSQLParserException e) {
+			throw new Error(e);
+		}
+		// TODO gestire count non disponibile (totalRecordsQueryString == null)
+		List<Object> result = QueryUtils.runHqlQuery(session, totalRecordsQueryString, query.getParameters());
+		return (Long) result.get(0);
+	}
 
-    @Override
-    public long getTotalSearchRecords() {
-        // calculate totalRecords
-        TableCriteria criteria = new TableCriteria(baseTable);
-        if(searchForm != null) {
-            searchForm.configureCriteria(criteria);
-        }
-        QueryStringWithParameters query =
-                QueryUtils.mergeQuery(crudConfiguration.getQuery(), criteria, this);
+	protected String generateCountQuery(String queryString) throws JSQLParserException {
+		CCJSqlParserManager parserManager = new CCJSqlParserManager();
+		try {
+			PlainSelect plainSelect = (PlainSelect) ((Select) parserManager.parse(new StringReader(queryString))).getSelectBody();
+			logger.debug("Query string {} contains select");
+			List items = plainSelect.getSelectItems();
+			if (items.size() != 1) {
+				logger.error("I don't know how to generate a count query for {}", queryString);
+				return null;
+			}
+			SelectExpressionItem item = (SelectExpressionItem) items.get(0);
+			Function function = new Function();
+			function.setName("count");
+			function.setParameters(new ExpressionList(Arrays.asList(item.getExpression())));
+			item.setExpression(function);
+			plainSelect.setOrderByElements(null);
+			return plainSelect.toString();
+		} catch (Exception e) {
+			logger.debug("Query string {} does not contain select");
+			queryString = "SELECT count(*) " + queryString;
+			PlainSelect plainSelect = (PlainSelect) ((Select) parserManager.parse(new StringReader(queryString))).getSelectBody();
+			plainSelect.setOrderByElements(null);
+			return plainSelect.toString();
+		}
+	}
 
-        String queryString = query.getQueryString();
-        String totalRecordsQueryString;
-        try {
-            totalRecordsQueryString = generateCountQuery(queryString);
-        } catch (JSQLParserException e) {
-            throw new Error(e);
-        }
-        //TODO gestire count non disponibile (totalRecordsQueryString == null)
-        List<Object> result = QueryUtils.runHqlQuery
-                (session, totalRecordsQueryString,
-                        query.getParameters());
-        return (Long) result.get(0);
-    }
+	@Override
+	protected void commitTransaction() {
+		session.getTransaction().commit();
+	}
 
-    protected String generateCountQuery(String queryString) throws JSQLParserException {
-        CCJSqlParserManager parserManager = new CCJSqlParserManager();
-        try {
-            PlainSelect plainSelect =
-                (PlainSelect) ((Select) parserManager.parse(new StringReader(queryString))).getSelectBody();
-            logger.debug("Query string {} contains select");
-            List items = plainSelect.getSelectItems();
-            if(items.size() != 1) {
-                logger.error("I don't know how to generate a count query for {}", queryString);
-                return null;
-            }
-            SelectExpressionItem item = (SelectExpressionItem) items.get(0);
-            Function function = new Function();
-            function.setName("count");
-            function.setParameters(new ExpressionList(Arrays.asList(item.getExpression())));
-            item.setExpression(function);
-            plainSelect.setOrderByElements(null);
-            return plainSelect.toString();
-        } catch(Exception e) {
-            logger.debug("Query string {} does not contain select");
-            queryString = "SELECT count(*) " + queryString;
-            PlainSelect plainSelect =
-                (PlainSelect) ((Select) parserManager.parse(new StringReader(queryString))).getSelectBody();
-            plainSelect.setOrderByElements(null);
-            return plainSelect.toString();
-        }
-    }
+	@Override
+	protected void doSave(Object object) {
+		try {
+			session.save(baseTable.getActualEntityName(), object);
+		} catch (ConstraintViolationException e) {
+			logger.warn("Constraint violation in save", e);
+			throw new RuntimeException(ElementsThreadLocals.getText("save.failed.because.constraint.violated"));
+		}
+	}
 
-    @Override
-    protected void commitTransaction() {
-        session.getTransaction().commit();
-    }
+	@Override
+	protected void doUpdate(Object object) {
+		try {
+			session.update(baseTable.getActualEntityName(), object);
+		} catch (ConstraintViolationException e) {
+			logger.warn("Constraint violation in update", e);
+			throw new RuntimeException(ElementsThreadLocals.getText("save.failed.because.constraint.violated"));
+		}
+	}
 
-    @Override
-    protected void doSave(Object object) {
-        try {
-            session.save(baseTable.getActualEntityName(), object);
-        } catch(ConstraintViolationException e) {
-            logger.warn("Constraint violation in save", e);
-            throw new RuntimeException(ElementsThreadLocals.getText("save.failed.because.constraint.violated"));
-        }
-    }
+	@Override
+	protected void doDelete(Object object) {
+		session.delete(baseTable.getActualEntityName(), object);
+	}
 
-    @Override
-    protected void doUpdate(Object object) {
-        try {
-            session.update(baseTable.getActualEntityName(), object);
-        } catch(ConstraintViolationException e) {
-            logger.warn("Constraint violation in update", e);
-            throw new RuntimeException(ElementsThreadLocals.getText("save.failed.because.constraint.violated"));
-        }
-    }
+	@Before
+	public void prepare() {
+		if (crudConfiguration != null && crudConfiguration.getActualDatabase() != null) {
+			selectionProviderSupport = createSelectionProviderSupport();
+			selectionProviderSupport.setup();
+		}
+	}
 
-    @Override
-    protected void doDelete(Object object) {
-        session.delete(baseTable.getActualEntityName(), object);
-    }
+	protected ModelSelectionProviderSupport createSelectionProviderSupport() {
+		return new ModelSelectionProviderSupport(this, persistence);
+	}
 
-    //**************************************************************************
-    // Setup
-    //**************************************************************************
+	@Override
+	protected void prepareConfigurationForms() {
+		super.prepareConfigurationForms();
 
-    @Before
-    public void prepare() {
-        if(crudConfiguration != null && crudConfiguration.getActualDatabase() != null) {
-            selectionProviderSupport = createSelectionProviderSupport();
-            selectionProviderSupport.setup();
-        }
-    }
+		SelectionProvider databaseSelectionProvider = SelectionProviderLogic.createSelectionProvider("database", persistence.getModel().getDatabases(), Database.class, null, new String[] { "databaseName" });
+		crudConfigurationForm = new FormBuilder(CrudConfiguration.class).configFields(CRUD_CONFIGURATION_FIELDS).configFieldSetNames("Crud").configSelectionProvider(databaseSelectionProvider, "database").build();
 
-    protected ModelSelectionProviderSupport createSelectionProviderSupport() {
-        return new ModelSelectionProviderSupport(this, persistence);
-    }
+	}
 
-    @Override
-    protected void prepareConfigurationForms() {
-        super.prepareConfigurationForms();
+	@Override
+	protected ClassAccessor prepare(PageInstance pageInstance) {
+		Database actualDatabase = crudConfiguration.getActualDatabase();
+		if (actualDatabase == null) {
+			logger.warn("Crud " + crudConfiguration.getName() + " (" + pageInstance.getPath() + ") " + "has an invalid database: " + crudConfiguration.getDatabase());
+			return null;
+		}
 
-        SelectionProvider databaseSelectionProvider =
-                SelectionProviderLogic.createSelectionProvider(
-                        "database",
-                        persistence.getModel().getDatabases(),
-                        Database.class,
-                        null,
-                        new String[]{"databaseName"});
-        crudConfigurationForm = new FormBuilder(CrudConfiguration.class)
-                .configFields(CRUD_CONFIGURATION_FIELDS)
-                .configFieldSetNames("Crud")
-                .configSelectionProvider(databaseSelectionProvider, "database")
-                .build();
+		baseTable = crudConfiguration.getActualTable();
+		if (baseTable == null) {
+			logger.warn("Crud " + crudConfiguration.getName() + " (" + pageInstance.getPath() + ") " + "has an invalid table");
+			return null;
+		}
 
-    }
+		session = persistence.getSession(crudConfiguration.getDatabase());
+		return new TableAccessor(baseTable);
+	}
 
-    @Override
-    protected ClassAccessor prepare(PageInstance pageInstance) {
-        Database actualDatabase = crudConfiguration.getActualDatabase();
-        if (actualDatabase == null) {
-            logger.warn("Crud " + crudConfiguration.getName() + " (" + pageInstance.getPath() + ") " +
-                        "has an invalid database: " + crudConfiguration.getDatabase());
-            return null;
-        }
+	public void loadObjects() {
+		// Se si passano dati sbagliati al criterio restituisco messaggio
+		// d'errore
+		// ma nessun risultato
+		try {
+			TableCriteria criteria = new TableCriteria(baseTable);
+			if (searchForm != null) {
+				searchForm.configureCriteria(criteria);
+			}
+			if (!StringUtils.isBlank(sortProperty) && !StringUtils.isBlank(sortDirection)) {
+				try {
+					PropertyAccessor orderByProperty = classAccessor.getProperty(sortProperty);
+					criteria.orderBy(orderByProperty, sortDirection);
+				} catch (NoSuchFieldException e) {
+					logger.error("Can't order by " + sortProperty + ", property accessor not found", e);
+				}
+			}
+			objects = QueryUtils.getObjects(session, crudConfiguration.getQuery(), criteria, this, firstResult, maxResults);
+		} catch (ClassCastException e) {
+			objects = new ArrayList<Object>();
+			logger.warn("Incorrect Field Type", e);
+			SessionMessages.addWarningMessage(ElementsThreadLocals.getText("incorrect.field.type"));
+		}
+	}
 
-        baseTable = crudConfiguration.getActualTable();
-        if (baseTable == null) {
-            logger.warn("Crud " + crudConfiguration.getName() + " (" + pageInstance.getPath() + ") " +
-                        "has an invalid table");
-            return null;
-        }
+	@Override
+	protected Object loadObjectByPrimaryKey(Serializable pkObject) {
+		return QueryUtils.getObjectByPk(persistence, baseTable, pkObject, crudConfiguration.getQuery(), this);
+	}
 
-        session = persistence.getSession(crudConfiguration.getDatabase());
-        return new TableAccessor(baseTable);
-    }
+	protected Resolution getConfigurationView() {
+		return new ForwardResolution("/m/crud/configure.jsp");
+	}
 
-    //**************************************************************************
-    // Object loading
-    //**************************************************************************
+	public Table getBaseTable() {
+		return baseTable;
+	}
 
-    public void loadObjects() {
-        //Se si passano dati sbagliati al criterio restituisco messaggio d'errore
-        // ma nessun risultato
-        try {
-            TableCriteria criteria = new TableCriteria(baseTable);
-            if(searchForm != null) {
-                searchForm.configureCriteria(criteria);
-            }
-            if(!StringUtils.isBlank(sortProperty) && !StringUtils.isBlank(sortDirection)) {
-                try {
-                    PropertyAccessor orderByProperty = classAccessor.getProperty(sortProperty);
-                    criteria.orderBy(orderByProperty, sortDirection);
-                } catch (NoSuchFieldException e) {
-                    logger.error("Can't order by " + sortProperty + ", property accessor not found", e);
-                }
-            }
-            objects = QueryUtils.getObjects(session,
-                    crudConfiguration.getQuery(), criteria, this, firstResult, maxResults);
-        } catch (ClassCastException e) {
-            objects=new ArrayList<Object>();
-            logger.warn("Incorrect Field Type", e);
-            SessionMessages.addWarningMessage(ElementsThreadLocals.getText("incorrect.field.type"));
-        }
-    }
-
-    @Override
-    protected Object loadObjectByPrimaryKey(Serializable pkObject) {
-        return QueryUtils.getObjectByPk(
-                persistence,
-                baseTable, pkObject,
-                crudConfiguration.getQuery(), this);
-    }
-
-    //**************************************************************************
-    // Configuration
-    //**************************************************************************
-
-    protected Resolution getConfigurationView() {
-        return new ForwardResolution("/m/crud/configure.jsp");
-    }
-
-    //--------------------------------------------------------------------------
-    // Accessors
-    //--------------------------------------------------------------------------
-
-    public Table getBaseTable() {
-        return baseTable;
-    }
-
-    public void setBaseTable(Table baseTable) {
-        this.baseTable = baseTable;
-    }
+	public void setBaseTable(Table baseTable) {
+		this.baseTable = baseTable;
+	}
 
 }

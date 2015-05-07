@@ -235,8 +235,6 @@ public class TableForm implements Element {
 	}
 
 	public class Row extends AbstractCompositeElement<Field> {
-		public static final String copyright = "Copyright (c) 2005-2015, ManyDesigns srl";
-
 		protected String key;
 		protected final int index;
 
@@ -322,8 +320,6 @@ public class TableForm implements Element {
 	}
 
 	public class Column {
-		public static final String copyright = "Copyright (c) 2005-2015, ManyDesigns srl";
-
 		protected final PropertyAccessor propertyAccessor;
 
 		protected String label;

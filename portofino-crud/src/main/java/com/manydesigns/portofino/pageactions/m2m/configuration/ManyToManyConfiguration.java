@@ -1,23 +1,3 @@
-/*
- * Copyright (C) 2005-2015 ManyDesigns srl.  All rights reserved.
- * http://www.manydesigns.com/
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 3 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
- */
-
 package com.manydesigns.portofino.pageactions.m2m.configuration;
 
 import com.manydesigns.elements.annotations.CssClass;
@@ -36,233 +16,196 @@ import org.slf4j.LoggerFactory;
 
 import javax.xml.bind.annotation.*;
 
-/*
-* @author Paolo Predonzani     - paolo.predonzani@manydesigns.com
-* @author Angelo Lupo          - angelo.lupo@manydesigns.com
-* @author Giampiero Granatella - giampiero.granatella@manydesigns.com
-* @author Alessio Stalla       - alessio.stalla@manydesigns.com
-*/
 @XmlRootElement(name = "configuration")
 @XmlAccessorType(XmlAccessType.NONE)
 public class ManyToManyConfiguration implements PageActionConfiguration {
-    public static final String copyright =
-            "Copyright (c) 2005-2015, ManyDesigns srl";
+	protected String oneExpression;
+	protected String onePropertyName;
+	protected SelectionProviderReference oneSelectionProvider;
 
-    //**************************************************************************
-    // Fields
-    //**************************************************************************
+	protected SelectionProviderReference manySelectionProvider;
 
-    protected String oneExpression;
-    protected String onePropertyName;
-    protected SelectionProviderReference oneSelectionProvider;
+	protected String database;
+	protected String query;
+	protected String viewType;
 
-    protected SelectionProviderReference manySelectionProvider;
+	protected String actualOnePropertyName;
+	protected Database actualOneDatabase;
+	protected Database actualManyDatabase;
+	protected Database actualRelationDatabase;
+	protected Table actualRelationTable;
+	protected Table actualManyTable;
+	protected ViewType actualViewType;
 
-    protected String database;
-    protected String query;
-    protected String viewType;
+	@Inject(DatabaseModule.PERSISTENCE)
+	public Persistence persistence;
 
-    //**************************************************************************
-    // Fields for wire-up
-    //**************************************************************************
+	public static final Logger logger = LoggerFactory.getLogger(ManyToManyConfiguration.class);
 
-    protected String actualOnePropertyName;
-    protected Database actualOneDatabase;
-    protected Database actualManyDatabase;
-    protected Database actualRelationDatabase;
-    protected Table actualRelationTable;
-    protected Table actualManyTable;
-    protected ViewType actualViewType;
+	public ManyToManyConfiguration() {
+	}
 
-    @Inject(DatabaseModule.PERSISTENCE)
-    public Persistence persistence;
+	public void init() {
+		try {
+			actualViewType = ViewType.valueOf(viewType);
+		} catch (Exception e) {
+			actualViewType = ViewType.CHECKBOXES;
+			if (!StringUtils.isEmpty(viewType)) {
+				logger.warn("Invalid viewType: " + viewType);
+			}
+		}
 
-    //**************************************************************************
-    // Logging
-    //**************************************************************************
+		if (database != null && query != null) {
+			actualRelationDatabase = DatabaseLogic.findDatabaseByName(persistence.getModel(), database);
+			if (actualRelationDatabase != null) {
+				actualRelationTable = QueryUtils.getTableFromQueryString(actualRelationDatabase, query);
 
-    public static final Logger logger =
-            LoggerFactory.getLogger(ManyToManyConfiguration.class);
+				if (actualRelationTable != null) {
+					if (manySelectionProvider != null) {
+						manySelectionProvider.init(actualRelationTable);
+						if (manySelectionProvider.getActualSelectionProvider() != null) {
+							ModelSelectionProvider actualSelectionProvider = manySelectionProvider.getActualSelectionProvider();
+							String manyDatabaseName = actualSelectionProvider.getToDatabase();
+							actualManyDatabase = DatabaseLogic.findDatabaseByName(persistence.getModel(), manyDatabaseName);
+							actualManyTable = actualSelectionProvider.getToTable();
+							if (actualManyTable == null && actualSelectionProvider instanceof DatabaseSelectionProvider) {
+								logger.debug("Trying to determine the many table from the selection provider query");
+								String hql = ((DatabaseSelectionProvider) actualSelectionProvider).getHql();
+								if (hql != null) {
+									actualManyTable = QueryUtils.getTableFromQueryString(actualManyDatabase, hql);
+								}
+							}
+							if (actualManyTable == null) {
+								logger.error("Invalid selection provider: only foreign keys or HQL selection providers that select a single entity are supported");
+							}
+						} else {
+							logger.error("Many-side selection provider not found");
+						}
+					} else {
+						logger.error("Many-side selection provider is required");
+					}
 
-    //**************************************************************************
-    // Constructors
-    //**************************************************************************
+					if (oneSelectionProvider != null) {
+						oneSelectionProvider.init(actualRelationTable);
+						String oneDatabaseName = oneSelectionProvider.getActualSelectionProvider().getToDatabase();
+						actualOneDatabase = DatabaseLogic.findDatabaseByName(persistence.getModel(), oneDatabaseName);
+					}
+				} else {
+					logger.error("Table not found");
+				}
+			} else {
+				logger.error("Relation database " + database + " not found");
+			}
 
-    public ManyToManyConfiguration() {}
+			if (StringUtils.isBlank(oneExpression) && getOneSelectionProvider() != null) {
+				// TODO chiave multipla
+				try {
+					actualOnePropertyName = getOneSelectionProvider().getActualSelectionProvider().getReferences().get(0).getActualFromColumn().getActualPropertyName();
+				} catch (Throwable t) {
+					logger.error("Couldn't determine one property name", t);
+				}
+			} else {
+				actualOnePropertyName = onePropertyName;
+			}
+		}
+	}
 
-    //**************************************************************************
-    // Configuration implementation
-    //**************************************************************************
+	@Required
+	@XmlAttribute(required = true)
+	public String getDatabase() {
+		return database;
+	}
 
-    public void init() {
-        try {
-            actualViewType = ViewType.valueOf(viewType);
-        } catch (Exception e) {
-            actualViewType = ViewType.CHECKBOXES;
-            if(!StringUtils.isEmpty(viewType)) {
-                logger.warn("Invalid viewType: " + viewType);
-            }
-        }
+	public void setDatabase(String database) {
+		this.database = database;
+	}
 
-        if(database != null && query != null) {
-            actualRelationDatabase = DatabaseLogic.findDatabaseByName(persistence.getModel(), database);
-            if(actualRelationDatabase != null) {
-                actualRelationTable = QueryUtils.getTableFromQueryString(actualRelationDatabase, query);
+	@Required
+	@Multiline
+	@CssClass(BootstrapSizes.FILL_ROW)
+	@XmlAttribute(required = true)
+	public String getQuery() {
+		return query;
+	}
 
-                if(actualRelationTable != null) {
-                    if(manySelectionProvider != null) {
-                        manySelectionProvider.init(actualRelationTable);
-                        if(manySelectionProvider.getActualSelectionProvider() != null) {
-                            ModelSelectionProvider actualSelectionProvider = manySelectionProvider.getActualSelectionProvider();
-                            String manyDatabaseName = actualSelectionProvider.getToDatabase();
-                            actualManyDatabase =
-                                DatabaseLogic.findDatabaseByName(persistence.getModel(), manyDatabaseName);
-                            actualManyTable = actualSelectionProvider.getToTable();
-                            if(actualManyTable == null && actualSelectionProvider instanceof DatabaseSelectionProvider) {
-                                logger.debug("Trying to determine the many table from the selection provider query");
-                                String hql = ((DatabaseSelectionProvider) actualSelectionProvider).getHql();
-                                if(hql != null) {
-                                    actualManyTable = QueryUtils.getTableFromQueryString(actualManyDatabase, hql);
-                                }
-                            }
-                            if(actualManyTable == null) {
-                                logger.error("Invalid selection provider: only foreign keys or HQL selection providers that select a single entity are supported");
-                            }
-                        } else {
-                            logger.error("Many-side selection provider not found");
-                        }
-                    } else {
-                        logger.error("Many-side selection provider is required");
-                    }
+	public void setQuery(String query) {
+		this.query = query;
+	}
 
-                    if(oneSelectionProvider != null) {
-                        oneSelectionProvider.init(actualRelationTable);
-                        String oneDatabaseName = oneSelectionProvider.getActualSelectionProvider().getToDatabase();
-                        actualOneDatabase =
-                            DatabaseLogic.findDatabaseByName(persistence.getModel(), oneDatabaseName);
-                    }
-                } else {
-                    logger.error("Table not found");
-                }
-            } else {
-                logger.error("Relation database " + database + " not found");
-            }
+	@Required
+	@XmlAttribute(required = true)
+	public String getViewType() {
+		return viewType;
+	}
 
-            if(StringUtils.isBlank(oneExpression) && getOneSelectionProvider() != null) {
-                //TODO chiave multipla
-                try {
-                    actualOnePropertyName =
-                            getOneSelectionProvider().getActualSelectionProvider().getReferences().get(0)
-                                    .getActualFromColumn().getActualPropertyName();
-                } catch (Throwable t) {
-                    logger.error("Couldn't determine one property name", t);
-                }
-            } else {
-                actualOnePropertyName = onePropertyName;
-            }
-        }
-    }
+	public void setViewType(String viewType) {
+		this.viewType = viewType;
+	}
 
-    //**************************************************************************
-    // Getters/setters
-    //**************************************************************************
+	@CssClass(BootstrapSizes.COL_SM_6)
+	@XmlAttribute(required = false)
+	public String getOneExpression() {
+		return oneExpression;
+	}
 
-    @Required
-    @XmlAttribute(required = true)
-    public String getDatabase() {
-        return database;
-    }
+	public void setOneExpression(String oneExpression) {
+		this.oneExpression = oneExpression;
+	}
 
-    public void setDatabase(String database) {
-        this.database = database;
-    }
+	@XmlAttribute(required = false)
+	@CssClass(BootstrapSizes.COL_SM_6)
+	public String getOnePropertyName() {
+		return onePropertyName;
+	}
 
-    @Required
-    @Multiline
-    @CssClass(BootstrapSizes.FILL_ROW)
-    @XmlAttribute(required = true)
-    public String getQuery() {
-        return query;
-    }
+	public void setOnePropertyName(String onePropertyName) {
+		this.onePropertyName = onePropertyName;
+	}
 
-    public void setQuery(String query) {
-        this.query = query;
-    }
+	@XmlElement(name = "one", required = false)
+	public SelectionProviderReference getOneSelectionProvider() {
+		return oneSelectionProvider;
+	}
 
-    @Required
-    @XmlAttribute(required = true)
-    public String getViewType() {
-        return viewType;
-    }
+	public void setOneSelectionProvider(SelectionProviderReference oneSelectionProvider) {
+		this.oneSelectionProvider = oneSelectionProvider;
+	}
 
-    public void setViewType(String viewType) {
-        this.viewType = viewType;
-    }
+	@Required
+	@XmlElement(name = "many", required = true)
+	public SelectionProviderReference getManySelectionProvider() {
+		return manySelectionProvider;
+	}
 
-    @CssClass(BootstrapSizes.COL_SM_6)
-    @XmlAttribute(required = false)
-    public String getOneExpression() {
-        return oneExpression;
-    }
+	public void setManySelectionProvider(SelectionProviderReference manySelectionProvider) {
+		this.manySelectionProvider = manySelectionProvider;
+	}
 
-    public void setOneExpression(String oneExpression) {
-        this.oneExpression = oneExpression;
-    }
+	public Database getActualOneDatabase() {
+		return actualOneDatabase;
+	}
 
-    @XmlAttribute(required = false)
-    @CssClass(BootstrapSizes.COL_SM_6)
-    public String getOnePropertyName() {
-        return onePropertyName;
-    }
+	public Database getActualManyDatabase() {
+		return actualManyDatabase;
+	}
 
-    public void setOnePropertyName(String onePropertyName) {
-        this.onePropertyName = onePropertyName;
-    }
+	public ViewType getActualViewType() {
+		return actualViewType;
+	}
 
-    @XmlElement(name = "one", required = false)
-    public SelectionProviderReference getOneSelectionProvider() {
-        return oneSelectionProvider;
-    }
+	public Database getActualRelationDatabase() {
+		return actualRelationDatabase;
+	}
 
-    public void setOneSelectionProvider(SelectionProviderReference oneSelectionProvider) {
-        this.oneSelectionProvider = oneSelectionProvider;
-    }
+	public Table getActualRelationTable() {
+		return actualRelationTable;
+	}
 
-    @Required
-    @XmlElement(name = "many", required = true)
-    public SelectionProviderReference getManySelectionProvider() {
-        return manySelectionProvider;
-    }
+	public Table getActualManyTable() {
+		return actualManyTable;
+	}
 
-    public void setManySelectionProvider(SelectionProviderReference manySelectionProvider) {
-        this.manySelectionProvider = manySelectionProvider;
-    }
-
-    public Database getActualOneDatabase() {
-        return actualOneDatabase;
-    }
-
-    public Database getActualManyDatabase() {
-        return actualManyDatabase;
-    }
-
-    public ViewType getActualViewType() {
-        return actualViewType;
-    }
-
-    public Database getActualRelationDatabase() {
-        return actualRelationDatabase;
-    }
-
-    public Table getActualRelationTable() {
-        return actualRelationTable;
-    }
-
-    public Table getActualManyTable() {
-        return actualManyTable;
-    }
-
-    public String getActualOnePropertyName() {
-        return actualOnePropertyName;
-    }
+	public String getActualOnePropertyName() {
+		return actualOnePropertyName;
+	}
 }

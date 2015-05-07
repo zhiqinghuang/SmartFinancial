@@ -1,5 +1,13 @@
 package com.manydesigns.portofino.shiro;
 
+import java.io.Serializable;
+import java.security.Principal;
+
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
+
 import org.apache.shiro.SecurityUtils;
 import org.apache.shiro.authc.AuthenticationException;
 import org.apache.shiro.subject.Subject;
@@ -8,15 +16,7 @@ import org.apache.shiro.web.servlet.ShiroHttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
-import java.io.Serializable;
-import java.security.Principal;
-
 public class ServletContainerSecurityFilter extends PathMatchingFilter {
-	public static final String copyright = "Copyright (c) 2005-2015, ManyDesigns srl";
 
 	public static final Logger logger = LoggerFactory.getLogger(ServletContainerSecurityFilter.class);
 

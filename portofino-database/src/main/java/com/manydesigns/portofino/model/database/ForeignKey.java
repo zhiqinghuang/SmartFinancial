@@ -1,23 +1,3 @@
-/*
- * Copyright (C) 2005-2015 ManyDesigns srl.  All rights reserved.
- * http://www.manydesigns.com/
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 3 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
- */
-
 package com.manydesigns.portofino.model.database;
 
 import com.manydesigns.portofino.model.Model;
@@ -32,236 +12,177 @@ import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlTransient;
 import java.text.MessageFormat;
 
-/*
-* @author Paolo Predonzani     - paolo.predonzani@manydesigns.com
-* @author Angelo Lupo          - angelo.lupo@manydesigns.com
-* @author Giampiero Granatella - giampiero.granatella@manydesigns.com
-* @author Alessio Stalla       - alessio.stalla@manydesigns.com
-*/
 @XmlAccessorType(value = XmlAccessType.NONE)
-public class ForeignKey extends DatabaseSelectionProvider
-        implements HasReferences {
-    public static final String copyright =
-            "Copyright (c) 2005-2015, ManyDesigns srl";
+public class ForeignKey extends DatabaseSelectionProvider implements HasReferences {
+	protected String onUpdate;
+	protected String onDelete;
+	protected String toSchema;
 
-    //**************************************************************************
-    // Fields (physical JDBC)
-    //**************************************************************************
+	protected String manyPropertyName;
+	protected String onePropertyName;
+	protected String toTableName;
 
-    protected String onUpdate;
-    protected String onDelete;
-    protected String toSchema;
+	protected String actualManyPropertyName;
+	protected String actualOnePropertyName;
+	protected Table toTable;
 
-    //**************************************************************************
-    // Fields (logical)
-    //**************************************************************************
+	public static final Logger logger = LoggerFactory.getLogger(ForeignKey.class);
 
-    protected String manyPropertyName;
-    protected String onePropertyName;
-    protected String toTableName;
+	public ForeignKey() {
+	}
 
-    //**************************************************************************
-    // Fields for wire-up
-    //**************************************************************************
+	public ForeignKey(Table fromTable) {
+		this();
+		this.fromTable = fromTable;
+	}
 
-    protected String actualManyPropertyName;
-    protected String actualOnePropertyName;
-    protected Table toTable;
+	@Override
+	public String getQualifiedName() {
+		return MessageFormat.format("{0}${1}", fromTable.getQualifiedName(), name);
+	}
 
-    //**************************************************************************
-    // Logging
-    //**************************************************************************
+	@Override
+	public void reset() {
+		super.reset();
+		toTable = null;
+		actualManyPropertyName = null;
+		actualOnePropertyName = null;
+	}
 
-    public static final Logger logger =
-            LoggerFactory.getLogger(ForeignKey.class);
+	@Override
+	public void init(Model model) {
+		super.init(model);
 
-    //**************************************************************************
-    // Constructors and init
-    //**************************************************************************
+		assert fromTable != null;
+		assert name != null;
+		assert toSchema != null;
+		assert toTableName != null;
 
-    public ForeignKey() {
-    }
+		if (references.isEmpty()) {
+			throw new Error(MessageFormat.format("Foreign key {0} has no references", getQualifiedName()));
+		}
 
-    public ForeignKey(Table fromTable) {
-        this();
-        this.fromTable = fromTable;
-    }
+	}
 
-    //**************************************************************************
-    // ModelObject implementation
-    //**************************************************************************
+	@Override
+	public void link(Model model) {
+		super.link(model);
+		toTable = DatabaseLogic.findTableByName(model, toDatabase, toSchema, toTableName);
+		if (toTable != null) {
+			// wire up Table.oneToManyRelationships
+			toTable.getOneToManyRelationships().add(this);
+			hql = "from " + toTable.getActualEntityName();
 
-    @Override
-    public String getQualifiedName() {
-        return MessageFormat.format("{0}${1}",
-                fromTable.getQualifiedName(), name);
-    }
+			actualManyPropertyName = (manyPropertyName == null) ? DatabaseLogic.getUniquePropertyName(toTable, DatabaseLogic.normalizeName(name)) : manyPropertyName;
 
-    @Override
-    public void reset() {
-        super.reset();
-        toTable = null;
-        actualManyPropertyName = null;
-        actualOnePropertyName = null;
-    }
+		} else {
+			logger.warn("Cannot find destination table '{}'", Table.composeQualifiedName(toDatabase, toSchema, toTableName));
 
-    @Override
-    public void init(Model model) {
-        super.init(model);
+			actualManyPropertyName = (manyPropertyName == null) ? DatabaseLogic.normalizeName(name) : manyPropertyName;
+		}
 
-        assert fromTable != null;
-        assert name != null;
-        assert toSchema != null;
-        assert toTableName != null;
+		actualOnePropertyName = (onePropertyName == null) ? DatabaseLogic.getUniquePropertyName(fromTable, DatabaseLogic.normalizeName(name)) : onePropertyName;
+	}
 
-        if (references.isEmpty()) {
-            throw new Error(MessageFormat.format(
-                    "Foreign key {0} has no references",
-                    getQualifiedName()));
-        }
+	public Reference findReferenceByColumnNamePair(Pair<String> columnNamePair) {
+		for (Reference reference : references) {
+			if (ObjectUtils.equals(reference.getFromColumn(), columnNamePair.left) && ObjectUtils.equals(reference.getToColumn(), columnNamePair.right)) {
+				return reference;
+			}
+		}
+		return null;
+	}
 
-    }
+	public String getFromDatabaseName() {
+		return fromTable.getDatabaseName();
+	}
 
-    @Override
-    public void link(Model model) {
-        super.link(model);
-        toTable = DatabaseLogic.findTableByName(model, toDatabase, toSchema, toTableName);
-        if(toTable != null) {
-            // wire up Table.oneToManyRelationships
-            toTable.getOneToManyRelationships().add(this);
-            hql = "from " + toTable.getActualEntityName();
+	public String getFromSchemaName() {
+		return fromTable.getSchemaName();
+	}
 
-            actualManyPropertyName = (manyPropertyName == null)
-                ? DatabaseLogic.getUniquePropertyName(toTable, DatabaseLogic.normalizeName(name))
-                : manyPropertyName;
+	public String getFromTableName() {
+		return fromTable.getTableName();
+	}
 
-        } else {
-            logger.warn("Cannot find destination table '{}'",
-                    Table.composeQualifiedName(toDatabase, toSchema, toTableName));
+	@XmlAttribute(required = true)
+	public String getOnUpdate() {
+		return onUpdate;
+	}
 
-            actualManyPropertyName = (manyPropertyName == null)
-                ? DatabaseLogic.normalizeName(name)
-                : manyPropertyName;
-        }
+	public void setOnUpdate(String onUpdate) {
+		this.onUpdate = onUpdate;
+	}
 
-        actualOnePropertyName = (onePropertyName == null)
-                ? DatabaseLogic.getUniquePropertyName(fromTable, DatabaseLogic.normalizeName(name))
-                : onePropertyName;
-    }
+	@XmlAttribute(required = true)
+	public String getOnDelete() {
+		return onDelete;
+	}
 
-    //**************************************************************************
-    // Find methods
-    //**************************************************************************
+	public void setOnDelete(String onDelete) {
+		this.onDelete = onDelete;
+	}
 
-    public Reference findReferenceByColumnNamePair(Pair<String> columnNamePair) {
-        for (Reference reference : references) {
-            if (ObjectUtils.equals(reference.getFromColumn(), columnNamePair.left)
-                    && ObjectUtils.equals(reference.getToColumn(), columnNamePair.right)) {
-                return reference;
-            }
-        }
-        return null;
-    }
+	@XmlAttribute(required = false)
+	public String getManyPropertyName() {
+		return manyPropertyName;
+	}
 
-    //**************************************************************************
-    // Getters/setter
-    //**************************************************************************
+	public void setManyPropertyName(String manyPropertyName) {
+		this.manyPropertyName = manyPropertyName;
+	}
 
-    public String getFromDatabaseName() {
-        return fromTable.getDatabaseName();
-    }
+	@XmlAttribute(required = false)
+	public String getOnePropertyName() {
+		return onePropertyName;
+	}
 
-    public String getFromSchemaName() {
-        return fromTable.getSchemaName();
-    }
+	public void setOnePropertyName(String onePropertyName) {
+		this.onePropertyName = onePropertyName;
+	}
 
-    public String getFromTableName() {
-        return fromTable.getTableName();
-    }
+	public String getActualManyPropertyName() {
+		return actualManyPropertyName;
+	}
 
-    @XmlAttribute(required = true)
-    public String getOnUpdate() {
-        return onUpdate;
-    }
+	public String getActualOnePropertyName() {
+		return actualOnePropertyName;
+	}
 
-    public void setOnUpdate(String onUpdate) {
-        this.onUpdate = onUpdate;
-    }
+	@Override
+	@XmlTransient
+	public String getHql() {
+		return hql;
+	}
 
-    @XmlAttribute(required = true)
-    public String getOnDelete() {
-        return onDelete;
-    }
+	@XmlAttribute(required = true)
+	public String getToSchema() {
+		return toSchema;
+	}
 
-    public void setOnDelete(String onDelete) {
-        this.onDelete = onDelete;
-    }
+	public void setToSchema(String toSchema) {
+		this.toSchema = toSchema;
+	}
 
-    @XmlAttribute(required = false)
-    public String getManyPropertyName() {
-        return manyPropertyName;
-    }
+	public Table getToTable() {
+		return toTable;
+	}
 
-    public void setManyPropertyName(String manyPropertyName) {
-        this.manyPropertyName = manyPropertyName;
-    }
+	public void setToTable(Table toTable) {
+		this.toTable = toTable;
+	}
 
-    @XmlAttribute(required = false)
-    public String getOnePropertyName() {
-        return onePropertyName;
-    }
+	@XmlAttribute(name = "toTable")
+	public String getToTableName() {
+		return toTableName;
+	}
 
-    public void setOnePropertyName(String onePropertyName) {
-        this.onePropertyName = onePropertyName;
-    }
+	public void setToTableName(String toTableName) {
+		this.toTableName = toTableName;
+	}
 
-    public String getActualManyPropertyName() {
-        return actualManyPropertyName;
-    }
-
-    public String getActualOnePropertyName() {
-        return actualOnePropertyName;
-    }
-
-    @Override
-    @XmlTransient
-    public String getHql() {
-        return hql;
-    }
-
-    @XmlAttribute(required = true)
-    public String getToSchema() {
-        return toSchema;
-    }
-
-    public void setToSchema(String toSchema) {
-        this.toSchema = toSchema;
-    }
-
-    public Table getToTable() {
-        return toTable;
-    }
-
-    public void setToTable(Table toTable) {
-        this.toTable = toTable;
-    }
-
-    @XmlAttribute(name = "toTable")
-    public String getToTableName() {
-        return toTableName;
-    }
-
-    public void setToTableName(String toTableName) {
-        this.toTableName = toTableName;
-    }
-
-    //**************************************************************************
-    // toString() override
-    //**************************************************************************
-
-    @Override
-    public String toString() {
-        return MessageFormat.format("foreign key {0}", getQualifiedName());
-    }
-
+	@Override
+	public String toString() {
+		return MessageFormat.format("foreign key {0}", getQualifiedName());
+	}
 }

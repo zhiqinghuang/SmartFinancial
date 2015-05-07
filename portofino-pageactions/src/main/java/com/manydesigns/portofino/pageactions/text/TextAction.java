@@ -45,7 +45,6 @@ import java.util.regex.Pattern;
 @PageActionName("Text")
 @SupportsPermissions({ TextAction.PERMISSION_EDIT })
 public class TextAction extends AbstractPageAction {
-	public static final String copyright = "Copyright (c) 2005-2015, ManyDesigns srl";
 	public static final String CONTENT_ENCODING = "UTF-8";
 	public static final String EMPTY_STRING = "";
 	public static final String TEXT_FILE_NAME_PATTERN = "{0}.html";

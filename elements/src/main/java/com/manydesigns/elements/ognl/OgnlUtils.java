@@ -11,7 +11,6 @@ import org.slf4j.LoggerFactory;
 import java.util.Map;
 
 public class OgnlUtils {
-	public static final String copyright = "Copyright (c) 2005-2015, ManyDesigns srl";
 
 	public final static Logger logger = LoggerFactory.getLogger(OgnlUtils.class);
 

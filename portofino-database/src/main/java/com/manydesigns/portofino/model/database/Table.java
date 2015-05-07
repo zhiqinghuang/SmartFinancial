@@ -1,23 +1,3 @@
-/*
- * Copyright (C) 2005-2015 ManyDesigns srl.  All rights reserved.
- * http://www.manydesigns.com/
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 3 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
- */
-
 package com.manydesigns.portofino.model.database;
 
 import com.manydesigns.elements.annotations.Required;
@@ -32,266 +12,218 @@ import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
 
-/*
-* @author Paolo Predonzani     - paolo.predonzani@manydesigns.com
-* @author Angelo Lupo          - angelo.lupo@manydesigns.com
-* @author Giampiero Granatella - giampiero.granatella@manydesigns.com
-* @author Alessio Stalla       - alessio.stalla@manydesigns.com
-*/
 @XmlAccessorType(XmlAccessType.NONE)
 public class Table implements ModelObject, Annotated {
-    public static final String copyright =
-            "Copyright (c) 2005-2015, ManyDesigns srl";
+	protected final List<Column> columns;
+	protected final List<ForeignKey> foreignKeys;
+	protected final List<Annotation> annotations;
+	protected final List<ModelSelectionProvider> selectionProviders;
 
-    //**************************************************************************
-    // Fields
-    //**************************************************************************
+	protected Schema schema;
+	protected String tableName;
+	protected String entityName;
 
-    protected final List<Column> columns;
-    protected final List<ForeignKey> foreignKeys;
-    protected final List<Annotation> annotations;
-    protected final List<ModelSelectionProvider> selectionProviders;
+	protected String javaClass;
 
-    protected Schema schema;
-    protected String tableName;
-    protected String entityName;
+	protected String shortName;
 
-    protected String javaClass;
+	protected PrimaryKey primaryKey;
 
-    protected String shortName;
+	protected final List<ForeignKey> oneToManyRelationships;
+	protected Class actualJavaClass;
+	protected String actualEntityName;
 
-    protected PrimaryKey primaryKey;
+	public static final Logger logger = LoggerFactory.getLogger(Table.class);
 
-    //**************************************************************************
-    // Fields for wire-up
-    //**************************************************************************
+	public Table() {
+		columns = new ArrayList<Column>();
+		foreignKeys = new ArrayList<ForeignKey>();
+		oneToManyRelationships = new ArrayList<ForeignKey>();
+		annotations = new ArrayList<Annotation>();
+		selectionProviders = new ArrayList<ModelSelectionProvider>();
+	}
 
-    protected final List<ForeignKey> oneToManyRelationships;
-    protected Class actualJavaClass;
-    protected String actualEntityName;
+	public Table(Schema schema) {
+		this();
+		this.schema = schema;
+	}
 
-    //**************************************************************************
-    // Logging
-    //**************************************************************************
+	public String getQualifiedName() {
+		if (schema.getQualifiedName() == null) {
+			return tableName;
+		}
+		return MessageFormat.format("{0}.{1}", schema.getQualifiedName(), tableName);
+	}
 
-    public static final Logger logger = LoggerFactory.getLogger(Table.class);
+	public void afterUnmarshal(Unmarshaller u, Object parent) {
+		schema = (Schema) parent;
+	}
 
-    //**************************************************************************
-    // Constructors and init
-    //**************************************************************************
-    public Table() {
-        columns = new ArrayList<Column>();
-        foreignKeys = new ArrayList<ForeignKey>();
-        oneToManyRelationships = new ArrayList<ForeignKey>();
-        annotations = new ArrayList<Annotation>();
-        selectionProviders = new ArrayList<ModelSelectionProvider>();
-    }
+	public void reset() {
+		actualEntityName = null;
+		actualJavaClass = null;
+		oneToManyRelationships.clear();
+	}
 
-    public Table(Schema schema) {
-        this();
-        this.schema = schema;
-    }
+	public void init(Model model) {
+		assert schema != null;
+		assert tableName != null;
 
-    //**************************************************************************
-    // DatamodelObject implementation
-    //**************************************************************************
+		// wire up javaClass
+		actualJavaClass = ReflectionUtil.loadClass(javaClass);
 
-    public String getQualifiedName() {
-        if(schema.getQualifiedName() == null) {
-            return tableName;
-        }
-        return MessageFormat.format("{0}.{1}",
-                schema.getQualifiedName(), tableName);
-    }
+		String baseEntityName;
+		if (entityName == null) {
+			baseEntityName = DatabaseLogic.normalizeName(getTableName());
+		} else {
+			baseEntityName = DatabaseLogic.normalizeName(entityName);
+		}
 
-    public void afterUnmarshal(Unmarshaller u, Object parent) {
-        schema = (Schema) parent;
-    }
+		String calculatedEntityName = baseEntityName;
 
-    public void reset() {
-        actualEntityName = null;
-        actualJavaClass = null;
-        oneToManyRelationships.clear();
-    }
+		int i = 2;
+		Database database = schema.getDatabase();
+		while (DatabaseLogic.findTableByEntityName(database, calculatedEntityName) != null) {
+			logger.warn("Entity name {} already taken, generating a new one", calculatedEntityName);
+			calculatedEntityName = baseEntityName + "_" + (i++);
+		}
 
-    public void init(Model model) {
-        assert schema != null;
-        assert tableName != null;
-        
-        // wire up javaClass
-        actualJavaClass = ReflectionUtil.loadClass(javaClass);
+		actualEntityName = calculatedEntityName;
+	}
 
-        String baseEntityName;
-        if (entityName == null) {
-            baseEntityName = DatabaseLogic.normalizeName(getTableName());
-        } else {
-            baseEntityName = DatabaseLogic.normalizeName(entityName);
-        }
+	public void link(Model model) {
+	}
 
-        String calculatedEntityName = baseEntityName;
+	public void visitChildren(ModelObjectVisitor visitor) {
+		for (Column column : columns) {
+			visitor.visit(column);
+		}
 
-        int i = 2;
-        Database database = schema.getDatabase();
-        while(DatabaseLogic.findTableByEntityName(database, calculatedEntityName) != null) {
-            logger.warn("Entity name {} already taken, generating a new one", calculatedEntityName);
-            calculatedEntityName = baseEntityName + "_" + (i++);
-        }
+		if (primaryKey == null) {
+			logger.warn("Table {} has no primary key", toString());
+		} else {
+			visitor.visit(primaryKey);
+		}
 
-        actualEntityName = calculatedEntityName;
-    }
+		for (ForeignKey foreignKey : foreignKeys) {
+			visitor.visit(foreignKey);
+		}
 
-    public void link(Model model) {}
+		for (Annotation annotation : annotations) {
+			visitor.visit(annotation);
+		}
 
-    public void visitChildren(ModelObjectVisitor visitor) {
-        for (Column column : columns) {
-            visitor.visit(column);
-        }
+		for (ModelSelectionProvider selectionProvider : selectionProviders) {
+			visitor.visit(selectionProvider);
+		}
+	}
 
-        if (primaryKey == null) {
-            logger.warn("Table {} has no primary key", toString());
-        } else {
-            visitor.visit(primaryKey);
-        }
+	public Schema getSchema() {
+		return schema;
+	}
 
-        for (ForeignKey foreignKey : foreignKeys) {
-            visitor.visit(foreignKey);
-        }
+	public void setSchema(Schema schema) {
+		this.schema = schema;
+	}
 
-        for (Annotation annotation : annotations) {
-            visitor.visit(annotation);
-        }
+	@Required
+	public String getDatabaseName() {
+		return schema.getDatabaseName();
+	}
 
-        for(ModelSelectionProvider selectionProvider : selectionProviders) {
-            visitor.visit(selectionProvider);
-        }
-    }
+	@Required
+	public String getSchemaName() {
+		return schema.getSchemaName();
+	}
 
-    //**************************************************************************
-    // Getters/setter
-    //**************************************************************************
+	@Required
+	@XmlAttribute(required = true)
+	public String getTableName() {
+		return tableName;
+	}
 
-    public Schema getSchema() {
-        return schema;
-    }
+	public void setTableName(String tableName) {
+		this.tableName = tableName;
+	}
 
-    public void setSchema(Schema schema) {
-        this.schema = schema;
-    }
+	@XmlAttribute(required = false)
+	public String getJavaClass() {
+		return javaClass;
+	}
 
-    @Required
-    public String getDatabaseName() {
-        return schema.getDatabaseName();
-    }
+	public void setJavaClass(String javaClass) {
+		this.javaClass = javaClass;
+	}
 
-    @Required
-    public String getSchemaName() {
-        return schema.getSchemaName();
-    }
+	@XmlElementWrapper(name = "columns")
+	@XmlElement(name = "column", type = com.manydesigns.portofino.model.database.Column.class)
+	public List<Column> getColumns() {
+		return columns;
+	}
 
-    @Required
-    @XmlAttribute(required = true)
-    public String getTableName() {
-        return tableName;
-    }
+	@XmlElement()
+	public PrimaryKey getPrimaryKey() {
+		return primaryKey;
+	}
 
+	public void setPrimaryKey(PrimaryKey primaryKey) {
+		this.primaryKey = primaryKey;
+	}
 
-    public void setTableName(String tableName) {
-        this.tableName = tableName;
-    }
+	public Class getActualJavaClass() {
+		return actualJavaClass;
+	}
 
-    @XmlAttribute(required = false)
-    public String getJavaClass() {
-        return javaClass;
-    }
+	@XmlElementWrapper(name = "foreignKeys")
+	@XmlElement(name = "foreignKey", type = com.manydesigns.portofino.model.database.ForeignKey.class)
+	public List<ForeignKey> getForeignKeys() {
+		return foreignKeys;
+	}
 
-    public void setJavaClass(String javaClass) {
-        this.javaClass = javaClass;
-    }
+	@XmlAttribute(required = false)
+	public String getEntityName() {
+		return entityName;
+	}
 
-    @XmlElementWrapper(name="columns")
-    @XmlElement(name = "column",
-            type = com.manydesigns.portofino.model.database.Column.class)
-    public List<Column> getColumns() {
-        return columns;
-    }
+	public void setEntityName(String entityName) {
+		this.entityName = entityName;
+	}
 
-    @XmlElement()
-    public PrimaryKey getPrimaryKey() {
-        return primaryKey;
-    }
+	public String getActualEntityName() {
+		return actualEntityName;
+	}
 
-    public void setPrimaryKey(PrimaryKey primaryKey) {
-        this.primaryKey = primaryKey;
-    }
+	public List<ForeignKey> getOneToManyRelationships() {
+		return oneToManyRelationships;
+	}
 
-    public Class getActualJavaClass() {
-        return actualJavaClass;
-    }
+	@XmlElementWrapper(name = "annotations")
+	@XmlElement(name = "annotation", type = Annotation.class)
+	public List<Annotation> getAnnotations() {
+		return annotations;
+	}
 
-    @XmlElementWrapper(name="foreignKeys")
-    @XmlElement(name = "foreignKey",
-            type = com.manydesigns.portofino.model.database.ForeignKey.class)
-    public List<ForeignKey> getForeignKeys() {
-        return foreignKeys;
-    }
+	@XmlElementWrapper(name = "selectionProviders")
+	@XmlElement(name = "query", type = DatabaseSelectionProvider.class)
+	public List<ModelSelectionProvider> getSelectionProviders() {
+		return selectionProviders;
+	}
 
-    @XmlAttribute(required = false)
-    public String getEntityName() {
-        return entityName;
-    }
+	@XmlAttribute(required = false)
+	public String getShortName() {
+		return shortName;
+	}
 
-    public void setEntityName(String entityName) {
-        this.entityName = entityName;
-    }
+	public void setShortName(String shortName) {
+		this.shortName = shortName;
+	}
 
-    public String getActualEntityName() {
-        return actualEntityName;
-    }
+	@Override
+	public String toString() {
+		return MessageFormat.format("table {0}", getQualifiedName());
+	}
 
-    public List<ForeignKey> getOneToManyRelationships() {
-        return oneToManyRelationships;
-    }
-
-    @XmlElementWrapper(name="annotations")
-    @XmlElement(name = "annotation",
-            type = Annotation.class)
-    public List<Annotation> getAnnotations() {
-        return annotations;
-    }
-
-    @XmlElementWrapper(name="selectionProviders")
-    @XmlElement(name="query",type=DatabaseSelectionProvider.class)
-    public List<ModelSelectionProvider> getSelectionProviders() {
-        return selectionProviders;
-    }
-
-    @XmlAttribute(required = false)
-    public String getShortName() {
-        return shortName;
-    }
-
-    public void setShortName(String shortName) {
-        this.shortName = shortName;
-    }
-
-    //**************************************************************************
-    // toString() override
-    //**************************************************************************
-
-    @Override
-    public String toString() {
-        return MessageFormat.format("table {0}", getQualifiedName());
-    }
-
-    //**************************************************************************
-    // Utility methods
-    //**************************************************************************
-
-    public static String composeQualifiedName(String databaseName,
-                                              String schemaName,
-                                              String tableName) {
-        return MessageFormat.format(
-                "{0}.{1}.{2}", databaseName, schemaName, tableName);
-    }
-
+	public static String composeQualifiedName(String databaseName, String schemaName, String tableName) {
+		return MessageFormat.format("{0}.{1}.{2}", databaseName, schemaName, tableName);
+	}
 }

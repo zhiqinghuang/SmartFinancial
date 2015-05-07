@@ -1,23 +1,3 @@
-/*
- * Copyright (C) 2005-2015 ManyDesigns srl.  All rights reserved.
- * http://www.manydesigns.com/
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 3 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
- */
-
 package com.manydesigns.portofino.actions.admin;
 
 import com.manydesigns.elements.ElementsThreadLocals;
@@ -46,133 +26,101 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 
-/**
- * @author Paolo Predonzani     - paolo.predonzani@manydesigns.com
- * @author Angelo Lupo          - angelo.lupo@manydesigns.com
- * @author Giampiero Granatella - giampiero.granatella@manydesigns.com
- * @author Alessio Stalla       - alessio.stalla@manydesigns.com
- */
 @RequiresAuthentication
 @RequiresAdministrator
 @UrlBinding(SettingsAction.URL_BINDING)
 public class SettingsAction extends AbstractActionBean {
-    public static final String copyright =
-            "Copyright (c) 2005-2015, ManyDesigns srl";
 
-    public static final String URL_BINDING = "/actions/admin/settings";
+	public static final String URL_BINDING = "/actions/admin/settings";
 
-    @Inject(BaseModule.PORTOFINO_CONFIGURATION)
-    public Configuration configuration;
+	@Inject(BaseModule.PORTOFINO_CONFIGURATION)
+	public Configuration configuration;
 
-    @Inject(PageactionsModule.PAGES_DIRECTORY)
-    public File pagesDir;
+	@Inject(PageactionsModule.PAGES_DIRECTORY)
+	public File pagesDir;
 
-    Form form;
+	Form form;
 
-    //--------------------------------------------------------------------------
-    // Logging
-    //--------------------------------------------------------------------------
+	public final static Logger logger = LoggerFactory.getLogger(SettingsAction.class);
 
-    public final static Logger logger =
-            LoggerFactory.getLogger(SettingsAction.class);
+	@DefaultHandler
+	public Resolution execute() {
+		setupFormAndBean();
+		return new ForwardResolution("/m/admin/settings.jsp");
+	}
 
-    //--------------------------------------------------------------------------
-    // Action events
-    //--------------------------------------------------------------------------
+	private void setupFormAndBean() {
+		SelectionProvider pagesSelectionProvider = DispatcherLogic.createPagesSelectionProvider(pagesDir);
 
-    @DefaultHandler
-    public Resolution execute() {
-        setupFormAndBean();
-        return new ForwardResolution("/m/admin/settings.jsp");
-    }
+		Settings settings = new Settings();
+		settings.appName = configuration.getString(PortofinoProperties.APP_NAME);
+		settings.landingPage = configuration.getString(PortofinoProperties.LANDING_PAGE);
+		settings.loginPage = configuration.getString(PortofinoProperties.LOGIN_PAGE);
+		settings.preloadGroovyPages = configuration.getBoolean(PortofinoProperties.GROOVY_PRELOAD_PAGES, false);
+		settings.preloadGroovyClasses = configuration.getBoolean(PortofinoProperties.GROOVY_PRELOAD_CLASSES, false);
 
-    private void setupFormAndBean() {
-        SelectionProvider pagesSelectionProvider =
-                DispatcherLogic.createPagesSelectionProvider(pagesDir);
+		form = new FormBuilder(Settings.class).configSelectionProvider(pagesSelectionProvider, "landingPage").configSelectionProvider(pagesSelectionProvider, "loginPage").build();
 
-        Settings settings = new Settings();
-        settings.appName = configuration.getString(PortofinoProperties.APP_NAME);
-        settings.landingPage = configuration.getString(PortofinoProperties.LANDING_PAGE);
-        settings.loginPage = configuration.getString(PortofinoProperties.LOGIN_PAGE);
-        settings.preloadGroovyPages = configuration.getBoolean(PortofinoProperties.GROOVY_PRELOAD_PAGES, false);
-        settings.preloadGroovyClasses = configuration.getBoolean(PortofinoProperties.GROOVY_PRELOAD_CLASSES, false);
+		form.readFromObject(settings);
+	}
 
-        form = new FormBuilder(Settings.class)
-                .configSelectionProvider(pagesSelectionProvider, "landingPage")
-                .configSelectionProvider(pagesSelectionProvider, "loginPage")
-                .build();
+	@Button(list = "settings", key = "update", order = 1, type = Button.TYPE_PRIMARY)
+	public Resolution update() {
+		setupFormAndBean();
+		form.readFromRequest(context.getRequest());
+		if (form.validate()) {
+			logger.debug("Applying settings to model");
+			try {
+				Settings settings = new Settings();
+				form.writeToObject(settings);
+				configuration.setProperty(PortofinoProperties.APP_NAME, settings.appName);
+				configuration.setProperty(PortofinoProperties.LANDING_PAGE, settings.landingPage);
+				configuration.setProperty(PortofinoProperties.LOGIN_PAGE, settings.loginPage);
+				if (!settings.preloadGroovyPages || configuration.getProperty(PortofinoProperties.GROOVY_PRELOAD_PAGES) != null) {
+					configuration.setProperty(PortofinoProperties.GROOVY_PRELOAD_PAGES, settings.preloadGroovyPages);
+				}
+				if (!settings.preloadGroovyClasses || configuration.getProperty(PortofinoProperties.GROOVY_PRELOAD_CLASSES) != null) {
+					configuration.setProperty(PortofinoProperties.GROOVY_PRELOAD_CLASSES, settings.preloadGroovyClasses);
+				}
+				CommonsConfigurationUtils.save(configuration);
+				logger.info("Configuration saved");
+			} catch (Exception e) {
+				logger.error("Configuration not saved", e);
+				SessionMessages.addErrorMessage(ElementsThreadLocals.getText("the.configuration.could.not.be.saved"));
+				return new ForwardResolution("/m/admin/settings.jsp");
+			}
+			SessionMessages.addInfoMessage(ElementsThreadLocals.getText("configuration.updated.successfully"));
+			return new RedirectResolution(this.getClass());
+		} else {
+			return new ForwardResolution("/m/admin/settings.jsp");
+		}
+	}
 
-        form.readFromObject(settings);
-    }
+	@Button(list = "settings", key = "return.to.pages", order = 2)
+	public Resolution returnToPages() {
+		return new RedirectResolution("/");
+	}
 
-    @Button(list = "settings", key = "update", order = 1, type = Button.TYPE_PRIMARY)
-    public Resolution update() {
-        setupFormAndBean();
-        form.readFromRequest(context.getRequest());
-        if (form.validate()) {
-            logger.debug("Applying settings to model");
-            try {
-                Settings settings = new Settings();
-                form.writeToObject(settings);
-                configuration.setProperty(PortofinoProperties.APP_NAME, settings.appName);
-                configuration.setProperty(PortofinoProperties.LANDING_PAGE, settings.landingPage);
-                configuration.setProperty(PortofinoProperties.LOGIN_PAGE, settings.loginPage);
-                if(!settings.preloadGroovyPages ||
-                   configuration.getProperty(PortofinoProperties.GROOVY_PRELOAD_PAGES) != null) {
-                    configuration.setProperty(PortofinoProperties.GROOVY_PRELOAD_PAGES, settings.preloadGroovyPages);
-                }
-                if(!settings.preloadGroovyClasses ||
-                   configuration.getProperty(PortofinoProperties.GROOVY_PRELOAD_CLASSES) != null) {
-                    configuration.setProperty(PortofinoProperties.GROOVY_PRELOAD_CLASSES, settings.preloadGroovyClasses);
-                }
-                CommonsConfigurationUtils.save(configuration);
-                logger.info("Configuration saved");
-            } catch (Exception e) {
-                logger.error("Configuration not saved", e);
-                SessionMessages.addErrorMessage(ElementsThreadLocals.getText("the.configuration.could.not.be.saved"));
-                return new ForwardResolution("/m/admin/settings.jsp");
-            }
-            SessionMessages.addInfoMessage(ElementsThreadLocals.getText("configuration.updated.successfully"));
-            return new RedirectResolution(this.getClass());
-        } else {
-            return new ForwardResolution("/m/admin/settings.jsp");
-        }
-    }
+	public Form getForm() {
+		return form;
+	}
 
-    @Button(list = "settings", key = "return.to.pages", order = 2)
-    public Resolution returnToPages() {
-        return new RedirectResolution("/");
-    }
+	public static class Settings {
 
-    //--------------------------------------------------------------------------
-    // Getters/setters
-    //--------------------------------------------------------------------------
+		@Required
+		@Label("Application name")
+		@CssClass(BootstrapSizes.FILL_ROW)
+		public String appName;
+		@Required
+		public String landingPage;
+		@Required
+		public String loginPage;
+		@Required
+		@Label("Preload Groovy pages at startup")
+		public boolean preloadGroovyPages;
+		@Required
+		@Label("Preload Groovy shared classes at startup")
+		public boolean preloadGroovyClasses;
 
-    public Form getForm() {
-        return form;
-    }
-
-    //--------------------------------------------------------------------------
-    // Form
-    //--------------------------------------------------------------------------
-
-    public static class Settings {
-
-        @Required
-        @Label("Application name")
-        @CssClass(BootstrapSizes.FILL_ROW)
-        public String appName;
-        @Required
-        public String landingPage;
-        @Required
-        public String loginPage;
-        @Required
-        @Label("Preload Groovy pages at startup")
-        public boolean preloadGroovyPages;
-        @Required
-        @Label("Preload Groovy shared classes at startup")
-        public boolean preloadGroovyClasses;
-
-    }
-
+	}
 }
