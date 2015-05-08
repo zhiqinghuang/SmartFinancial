@@ -3,13 +3,8 @@
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
       xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd"
       version="3.0">
-    <display-name>ManyDesigns Portofino</display-name>
-    <description>ManyDesigns Portofino</description>
-    <!-- Certain servlet 3.0 containers (e.g. Tomcat 7 before 7.0.33) have bugs in their handling of relative
-         module ordering. To work around those, short of updating the container, you can configure here
-         the fragments to load. The following is the proper order of stock Portofino web fragments.
-         Note that the "stripes" fragment must come after every fragment that defines a servlet filter.
-    -->
+	<display-name>Smart Financial</display-name>
+	<description>Smart Financial</description>
     <!--
     <absolute-ordering>
         <name>elements</name>
@@ -19,10 +14,10 @@
         <name>stripes</name>
     </absolute-ordering>
     -->
-    <session-config>
-        <session-timeout>60</session-timeout>
-    </session-config>
-    <welcome-file-list>
-        <welcome-file>index.jsp</welcome-file>
-    </welcome-file-list>
+	<session-config>
+		<session-timeout>60</session-timeout>
+	</session-config>
+	<welcome-file-list>
+		<welcome-file>index.jsp</welcome-file>
+	</welcome-file-list>
 </web-app>
