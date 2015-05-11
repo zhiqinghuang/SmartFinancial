@@ -22,13 +22,11 @@
             com.manydesigns.portofino.servlets.PortofinoListener
         </listener-class>
     </listener>
-
     <!-- Shiro -->
     <filter>
         <filter-name>ShiroFilter</filter-name>
         <filter-class>org.apache.shiro.web.servlet.ShiroFilter</filter-class>
     </filter>
-
     <filter-mapping>
         <filter-name>ShiroFilter</filter-name>
         <url-pattern>/*</url-pattern>
@@ -44,22 +42,6 @@
         <url-pattern>/ckeditor/*</url-pattern>
         <dispatcher>REQUEST</dispatcher>
     </filter-mapping>
-
-    <!--
-        Include the following in your web.xml to enable container-managed security.
-
-        For Google AppEngine only:
-        note that, in order to properly use the GAE user service, you must also ensure that the class defined in your
-        Security.groovy file inherits from com.manydesigns.portofino.shiro.GAEPortofinoRealm and that your
-        app.properties file contains the following settings:
-
-            login.link={0}/actions/user/login.gae?login=&returnUrl={1}
-            logout.link={0}/actions/user/login.gae?logout=
-
-        Those URLs point to the built-in action com.manydesigns.portofino.actions.GAELoginAction which is mapped to
-        the path /actions/user/login.gae and exposes the two methods login() and logout(). The action is automatically
-        discovered by Stripes based on its package.
-    -->
     <!--
     <filter>
         <filter-name>ServletContainerSecurityFilter</filter-name>
@@ -71,7 +53,6 @@
         <url-pattern>/*</url-pattern>
     </filter-mapping>
     -->
-
     <filter>
         <filter-name>portofino-dispatcher</filter-name>
         <filter-class>
@@ -114,7 +95,6 @@
         <servlet-name>AtmosphereServlet</servlet-name>
         <url-pattern>/m/atmosphere/services/*</url-pattern>
     </servlet-mapping>
-
     <context-param>
         <param-name>ActionResolver.Class</param-name>
         <param-value>com.manydesigns.portofino.stripes.ModelActionResolver</param-value>
@@ -147,7 +127,6 @@
         <param-name>ActionBeanContext.Class</param-name>
         <param-value>com.manydesigns.elements.stripes.ElementsActionBeanContext</param-value>
     </context-param>
-
     <!-- Stripes -->
     <filter>
         <description>Stripes Filter</description>
@@ -157,7 +136,6 @@
             net.sourceforge.stripes.controller.StripesFilter
         </filter-class>
     </filter>
-
     <filter-mapping>
         <filter-name>StripesFilter</filter-name>
         <url-pattern>/*</url-pattern>
@@ -165,18 +143,15 @@
         <dispatcher>FORWARD</dispatcher>
         <dispatcher>INCLUDE</dispatcher>
     </filter-mapping>
-
     <!-- Must be mapped after StripesFilter so it can pick the correct request locale -->
     <filter>
         <filter-name>I18nFilter</filter-name>
         <filter-class>com.manydesigns.portofino.servlets.I18nFilter</filter-class>
     </filter>
-
     <filter-mapping>
         <filter-name>I18nFilter</filter-name>
         <url-pattern>/*</url-pattern>
     </filter-mapping>
-
     <filter>
         <description>Dynamically maps URLs to ActionBeans.</description>
         <display-name>Stripes Dynamic Mapping Filter</display-name>
@@ -185,7 +160,6 @@
             net.sourceforge.stripes.controller.DynamicMappingFilter
         </filter-class>
     </filter>
-
     <filter-mapping>
         <filter-name>DynamicMappingFilter</filter-name>
         <url-pattern>/*</url-pattern>
